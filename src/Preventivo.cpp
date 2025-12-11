@@ -72,7 +72,7 @@ Preventivo& Preventivo::operator=(Preventivo&& other) noexcept {
 
 //Aggiunge una voce trasferendo l'ownership del unique_ptr
 void Preventivo::aggiungiVoce(std::unique_ptr<VoceCosto> voce) {
-    if (voce.get() != 0) {
+    if (voce != nullptr) {
         voci_.push_back(std::move(voce)); //dopo lo std::move, "voce" è nullo
     }
 }
@@ -98,11 +98,42 @@ double Preventivo::totale() const {
 //Riepilogo del preventivo in formato stringa
 std::string Preventivo::riepilogo() const {
     std::ostringstream oss;
+
+    // Intestazione
     oss << "Preventivo " << id_ << " - Cliente: " << cliente_ << "\n";
-    oss << "Numero voci: " << voci_.size() << "\n";
+    oss << "Numero voci: " << voci_.size() << "\n\n";
+
+    if (voci_.empty()) {
+        oss << "(Nessuna voce inserita)\n";
+    } else {
+        oss << "Dettaglio voci:\n";
+        oss << "--------------------------------------------\n";
+
+        // Per ogni voce stampo i dati principali
+        for (const auto& vocePtr : voci_) {
+            if (!vocePtr) {
+                continue; // sicurezza: salto eventuali puntatori null
+            }
+
+            oss << "- " << vocePtr->getNome()
+                << " (" << vocePtr->getQuantita() << " "
+                << vocePtr->getUnitaMisura() << ")\n";
+
+            oss << "  Prezzo unitario: " << vocePtr->getPrezzoUnitario()
+                << "  Coefficiente: "   << vocePtr->getCoefficiente()
+                << "  Subtotale: "      << vocePtr->subtotale()
+                << " euro\n";
+        }
+
+        oss << "--------------------------------------------\n";
+    }
+
+    // Totale complessivo
     oss << "Totale: " << totale() << " euro\n";
+
     return oss.str();
 }
+
 
 //Operator +: restituisce un nuovo preventivo che contiene le voci di "a" + una copia (clone) delle voci di "b".
 Preventivo operator+(const Preventivo& a, const Preventivo& b) {

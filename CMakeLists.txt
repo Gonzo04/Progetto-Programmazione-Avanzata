@@ -17,4 +17,15 @@ add_executable(Progetto_CLion
         src/ListinoPrezzi.cpp
         include/ListinoPrezzi.h
         include/GradoDifficolta.h
+        src/VoceCartongesso.cpp
+        include/VoceCartongesso.h
+        include/RegolaCosto.h
+        src/RegolaTinteggiatura.cpp
+        include/RegolaTinteggiatura.h
+        src/RegolaCartongesso.cpp
+        include/RegolaCartongesso.h
+        src/CalcolatorePreventivo.cpp
+        include/CalcolatorePreventivo.h
+        src/VoceCartongessoBuilder.cpp
+        include/VoceCartongessoBuilder.h
 )

@@ -2,7 +2,6 @@
 #include <stdexcept>
 
 ListinoPrezzi::ListinoPrezzi() {
-
 }
 
 void ListinoPrezzi::impostaPrezzoMq(const std::string &nomeCiclo, double prezzo) {
@@ -24,6 +23,7 @@ double ListinoPrezzi::getPrezzoMq(const std::string &nomeCiclo) const {
     }
     return it->second;
 }
+
 double ListinoPrezzi::getCoeff(GradoDifficolta grado) const {
     std::map<GradoDifficolta, double>::const_iterator it = coeffDifficolta_.find(grado);
     if (it == coeffDifficolta_.end()) {
