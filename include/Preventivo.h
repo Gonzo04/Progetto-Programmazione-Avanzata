@@ -42,6 +42,17 @@ public:
     //Calcolo del totale (con std::accumulate + lambda)
     double totale() const;
 
+    template <typename F>
+    double aggrega (F funzione, double valoreIniziale) const {
+        double acc = valoreIniziale;
+        for (const std::unique_ptr<VoceCosto>& vocePtr : voci_) {
+            if (vocePtr) {
+                acc = funzione(acc,*vocePtr);
+            }
+        }
+        return acc;
+    }
+
     //Riepilogo in formato stringa (id, cliente, numero voci, totale)
     std::string riepilogo() const;
 

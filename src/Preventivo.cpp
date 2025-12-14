@@ -1,5 +1,4 @@
 #include "Preventivo.h"
-
 #include <numeric>     // std::accumulate
 #include <sstream>     // std::ostringstream "per costruire il riepilogo di una stringa"
 #include <utility>     // std::move
@@ -84,14 +83,11 @@ Preventivo& Preventivo::operator+=(std::unique_ptr<VoceCosto> voce) {
 
 //TOTALE: calcolo del totale usando std::accumulate e una lambda ( la quale somma i subtototali di tutte le voci non nulle)
 double Preventivo::totale() const {
-    return std::accumulate(
-        voci_.begin(),
-        voci_.end(),
-        0.0, // valore iniziale dell'accumulatore
-        // lambda che prende l'accumulatore e il unique_ptr alla voce
-        [](double acc, const std::unique_ptr<VoceCosto>& vocePtr)->double {
-            return vocePtr ? acc + vocePtr->subtotale() : acc;
-    }
+    return aggrega (
+        [](double acc, const VoceCosto& voce){
+            return acc + voce.subtotale();
+    },
+    0.0
     );
 }
 
@@ -99,7 +95,7 @@ double Preventivo::totale() const {
 std::string Preventivo::riepilogo() const {
     std::ostringstream oss;
 
-    // Intestazione
+
     oss << "Preventivo " << id_ << " - Cliente: " << cliente_ << "\n";
     oss << "Numero voci: " << voci_.size() << "\n\n";
 
@@ -109,15 +105,13 @@ std::string Preventivo::riepilogo() const {
         oss << "Dettaglio voci:\n";
         oss << "--------------------------------------------\n";
 
-        // Per ogni voce stampo i dati principali
-        for (const auto& vocePtr : voci_) {
-            if (!vocePtr) {
-                continue; // sicurezza: salto eventuali puntatori null
-            }
+
+        for (const std::unique_ptr<VoceCosto>& vocePtr : voci_) {
+            if (!vocePtr) continue;
 
             oss << "- " << vocePtr->getNome()
-                << " (" << vocePtr->getQuantita() << " "
-                << vocePtr->getUnitaMisura() << ")\n";
+                << " (" << vocePtr->getQuantita()
+                << " " << vocePtr->getUnitaMisura() << ")\n";
 
             oss << "  Prezzo unitario: " << vocePtr->getPrezzoUnitario()
                 << "  Coefficiente: "   << vocePtr->getCoefficiente()
@@ -128,7 +122,6 @@ std::string Preventivo::riepilogo() const {
         oss << "--------------------------------------------\n";
     }
 
-    // Totale complessivo
     oss << "Totale: " << totale() << " euro\n";
 
     return oss.str();

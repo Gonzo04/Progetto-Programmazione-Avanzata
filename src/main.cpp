@@ -2,6 +2,11 @@
 #include <memory>
 #include <limits>
 #include <stdexcept>
+#include <cctype>
+#include <thread>      // per std::thread
+#include <vector>      // per std::vector di thread
+#include <functional>  // per std::cref
+#include <fstream>    // per std::ofstream
 
 #include "Preventivo.h"
 #include "VoceTinteggiatura.h"
@@ -12,14 +17,14 @@
 #include "RegolaCartongesso.h"
 #include "CalcolatorePreventivo.h"
 
-// Macro-categoria del lavoro
+// Macro-categoria
 enum class CategoriaLavoro {
     Interno,
     Esterno,
     Cartongesso
 };
 
-// Sottocategoria allineata al PDF
+// Sottocategorie
 enum class SottoCategoriaLavoro {
     InternoCivile,
     InternoIndustriale,
@@ -39,7 +44,7 @@ struct CicloInfo {
     SottoCategoriaLavoro sottocategoria;
 };
 
-// Elenco completo dei cicli (allineato al PDF)
+// Elenco completo dei cicli
 static const CicloInfo CICLI_TINTEGGIATURA[] = {
     // === INTERNO ===
     // Interno civile
@@ -132,7 +137,7 @@ void pulisciInput() {
 GradoDifficolta chiediGradoDifficolta() {
     int scelta = 0;
     while (true) {
-        std::cout << "Seleziona il grado di difficolta' del cantiere:\n";
+        std::cout << "Seleziona la tipologia del cantiere:\n";
         std::cout << " 1) Nuovo\n";
         std::cout << " 2) Disabitato\n";
         std::cout << " 3) Abitato\n";
@@ -278,16 +283,32 @@ int menuCicliPerCategoria(CategoriaLavoro categoria,
 
 // Chiede se continuare dopo aver inserito una voce
 bool chiedeContinuaInserimento() {
-    pulisciInput(); // pulisco buffer prima di leggere il carattere
+    // Pulisco eventuali residui (es. '\n') lasciati da operator>>
+    pulisciInput();
+
+    std::string linea;
 
     while (true) {
         std::cout << "\nVuoi aggiungere un'altra voce? (S/N): ";
-        char risposta;
-        std::cin >> risposta;
 
-        if (!std::cin) {
+        // Leggo l'intera riga così com'è
+        if (!std::getline(std::cin, linea)) {
             pulisciInput();
-            std::cout << "Input non valido, riprova.\n";
+            continue;
+        }
+
+        // Cerco il primo carattere non bianco
+        char risposta = '\0';
+        for (char c : linea) {
+            if (!std::isspace(static_cast<unsigned char>(c))) {
+                risposta = c;
+                break;
+            }
+        }
+
+        // Se l'utente ha solo premuto Invio (o solo spazi), non stampo errori:
+        // semplicemente ripeto la stessa domanda
+        if (risposta == '\0') {
             continue;
         }
 
@@ -301,6 +322,27 @@ bool chiedeContinuaInserimento() {
         std::cout << "Risposta non valida. Inserisci S o N.\n";
     }
 }
+
+//Funzione eseguita dal thread: stampa un mini-riepilogo del preventivo
+void stampaRiepilogoAsync(const Preventivo& p, int indice) {
+    std::cout << "\n[THREAD " << indice << "] Preventivo " << p.getId()
+              << " - Cliente: " << p.getCliente()
+              << " - Totale: " << p.totale() << " euro\n";
+}
+
+void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
+    std::ofstream out(filename.c_str());
+    if (!out) {
+        std::cerr << "Impossibile aprire il file di testo: " << filename << "\n";
+        return;
+    }
+
+    // Uso direttamente il riepilogo già formattato
+    out << p.riepilogo();
+
+    std::cout << "Preventivo salvato in formato TXT su: " << filename << "\n";
+}
+
 
 int main() {
     std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
@@ -411,9 +453,34 @@ int main() {
         continuaInserimento = chiedeContinuaInserimento();
     }
 
-    // 4) Riepilogo finale
+    // Riepilogo finale
     std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
     std::cout << preventivo.riepilogo() << std::endl;
 
+    // elaboro più preventivi in parallelo
+    std::vector<Preventivo> preventiviBatch;
+    preventiviBatch.push_back(preventivo);    // copia del preventivo principale
+    preventiviBatch.push_back(preventivo);   // un'altra copia
+    preventiviBatch.push_back(preventivo);  // e un'altra ancora
+
+    std::vector<std::thread> threads;
+    for (std::size_t i = 0; i < preventiviBatch.size(); ++i) {
+        threads.push_back(std::thread(
+            stampaRiepilogoAsync,
+            std::cref(preventiviBatch[i]),
+            static_cast<int>(i + 1)
+        ));
+    }
+
+    // Aspetto che tutti i thread abbiano finito
+    for (std::size_t i = 0; i < threads.size(); ++i) {
+        if (threads[i].joinable()) {
+            threads[i].join();
+        }
+    }
+
     return 0;
 }
+
+
+
