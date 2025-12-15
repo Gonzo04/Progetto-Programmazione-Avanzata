@@ -53,6 +53,9 @@ public:
         return acc;
     }
 
+    // Ordina le voci in base al nome (ordine alfabetico crescente)
+    void ordinaPerNome();
+
     //Riepilogo in formato stringa (id, cliente, numero voci, totale)
     std::string riepilogo() const;
 

@@ -2,6 +2,18 @@
 #include <numeric>     // std::accumulate
 #include <sstream>     // std::ostringstream "per costruire il riepilogo di una stringa"
 #include <utility>     // std::move
+#include <ctime>
+#include <algorithm>
+#include <iomanip>    // std::fixed, std::setprecision
+
+static const char* descriviGrado(GradoDifficolta g) {
+    switch (g) {
+        case GradoDifficolta::Nuovo:      return "Nuovo";
+        case GradoDifficolta::Disabitato: return "Disabitato";
+        case GradoDifficolta::Abitato:    return "Abitato";
+    }
+    return "N/D";
+}
 
 //Costruttore: inizializzo i membri tramite std::move per evitare copie
 Preventivo::Preventivo(std::string id, std::string cliente, GradoDifficolta grado)
@@ -91,20 +103,63 @@ double Preventivo::totale() const {
     );
 }
 
+// Ordina le voci per nome (ordine alfabetico crescente).
+// Per costruzione, in voci_ non inseriamo mai puntatori null.
+void Preventivo::ordinaPerNome() {
+    std::sort(
+        voci_.begin(),
+        voci_.end(),
+        [](const std::unique_ptr<VoceCosto>& a,
+           const std::unique_ptr<VoceCosto>& b) {
+            // se per qualche motivo uno fosse nullo, lo mettiamo in fondo
+            if (!a && !b) return false;
+            if (!a)      return false; // a "dopo" b
+            if (!b)      return true;  // a "prima" di b
+
+            return a->getNome() < b->getNome();
+        }
+    );
+}
+
+// Funzione di utilità: converte il grado di difficoltà in stringa leggibile
+static const char* gradoToString(GradoDifficolta g) {
+    switch (g) {
+        case GradoDifficolta::Nuovo:      return "Nuovo";
+        case GradoDifficolta::Disabitato: return "Disabitato";
+        case GradoDifficolta::Abitato:    return "Abitato";
+        default:                          return "Sconosciuto";
+    }
+}
+
+
 //Riepilogo del preventivo in formato stringa
 std::string Preventivo::riepilogo() const {
     std::ostringstream oss;
 
+    // Intestazione "più da preventivo"
+    oss << "EDILCOLOR - Preventivo lavori di tinteggiatura/cartongesso\n";
+    oss << "============================================================\n";
 
+    // Data di stampa (non di creazione, ma va benissimo per l'esame)
+    std::time_t now = std::time(nullptr);
+    std::tm* ptm = std::localtime(&now);
+    char dataBuf[16];
+    std::strftime(dataBuf, sizeof(dataBuf), "%d/%m/%Y", ptm);
+
+    oss << "Data: " << dataBuf << "\n";
     oss << "Preventivo " << id_ << " - Cliente: " << cliente_ << "\n";
-    oss << "Numero voci: " << voci_.size() << "\n\n";
+    oss << "Numero voci: " << voci_.size() << "\n";
+    oss << "Stato dell'immobile: " << descriviGrado(grado_) << "\n\n";
+
+    // da qui in poi voglio formattazione a 2 decimali per i numeri
+    oss << std::fixed << std::setprecision(2);
+
 
     if (voci_.empty()) {
         oss << "(Nessuna voce inserita)\n";
     } else {
         oss << "Dettaglio voci:\n";
         oss << "--------------------------------------------\n";
-
 
         for (const std::unique_ptr<VoceCosto>& vocePtr : voci_) {
             if (!vocePtr) continue;
@@ -114,18 +169,27 @@ std::string Preventivo::riepilogo() const {
                 << " " << vocePtr->getUnitaMisura() << ")\n";
 
             oss << "  Prezzo unitario: " << vocePtr->getPrezzoUnitario()
-                << "  Coefficiente: "   << vocePtr->getCoefficiente()
-                << "  Subtotale: "      << vocePtr->subtotale()
+                << " euro  Subtotale: " << vocePtr->subtotale()
                 << " euro\n";
+
         }
 
         oss << "--------------------------------------------\n";
     }
 
-    oss << "Totale: " << totale() << " euro\n";
+    // Calcolo imponibile, IVA e totale "in stile preventivo"
+    double imponibile = totale();
+    const double ALIQUOTA_IVA = 0.22;
+    double iva = imponibile * ALIQUOTA_IVA;
+    double totaleIvato = imponibile + iva;
+
+    oss << "Subtotale imponibile: " << imponibile << " euro\n";
+    oss << "IVA (22%): " << iva << " euro\n";
+    oss << "Totale complessivo: " << totaleIvato << " euro\n";
 
     return oss.str();
 }
+
 
 
 //Operator +: restituisce un nuovo preventivo che contiene le voci di "a" + una copia (clone) delle voci di "b".

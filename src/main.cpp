@@ -4,9 +4,14 @@
 #include <stdexcept>
 #include <cctype>
 #include <thread>      // per std::thread
+#include <mutex>
 #include <vector>      // per std::vector di thread
 #include <functional>  // per std::cref
 #include <fstream>    // per std::ofstream
+#include <ctime>   // per l'ID utente
+#include <atomic>
+#include <iomanip>
+#include <chrono>
 
 #include "Preventivo.h"
 #include "VoceTinteggiatura.h"
@@ -16,6 +21,17 @@
 #include "RegolaTinteggiatura.h"
 #include "RegolaCartongesso.h"
 #include "CalcolatorePreventivo.h"
+
+static const double MQ_MAX_REALISTICI = 100000.0; // 100.000 m^2 limite di sicurezza
+
+
+void stampaRiepilogoAsync(const Preventivo& p,
+                          int indice,
+                          std::atomic<int>& contatore);
+
+// Mutex per proteggere l'output su console tra i vari thread
+std::mutex gConsoleMutex;
+
 
 // Macro-categoria
 enum class CategoriaLavoro {
@@ -245,7 +261,7 @@ int menuCicliPerCategoria(CategoriaLavoro categoria,
         if (ciclo.categoria == categoria &&
             ciclo.sottocategoria == sottocategoria) {
             std::cout << " " << voceMenu << ") " << ciclo.nome
-                      << " (" << ciclo.prezzoMq << " €/mq)\n";
+                      << " (" << ciclo.prezzoMq << " euro/mq)\n";
             mappaSceltaVersoIndice[voceMenu] = static_cast<int>(i);
             ++voceMenu;
         }
@@ -324,11 +340,21 @@ bool chiedeContinuaInserimento() {
 }
 
 //Funzione eseguita dal thread: stampa un mini-riepilogo del preventivo
-void stampaRiepilogoAsync(const Preventivo& p, int indice) {
-    std::cout << "\n[THREAD " << indice << "] Preventivo " << p.getId()
-              << " - Cliente: " << p.getCliente()
-              << " - Totale: " << p.totale() << " euro\n";
+void stampaRiepilogoAsync(const Preventivo& /*p*/,
+                          int indice,
+                          std::atomic<int>& contatore) {
+    // Simulo lavoro pesante variando un po' la durata per ogni thread
+    std::this_thread::sleep_for(std::chrono::milliseconds(300 + indice * 150));
+
+    {
+        std::lock_guard<std::mutex> lock(gConsoleMutex);
+        std::cout << "." << std::flush;  // "pallino" di caricamento
+    }
+
+    ++contatore;
 }
+
+
 
 void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
     std::ofstream out(filename.c_str());
@@ -343,6 +369,67 @@ void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
     std::cout << "Preventivo salvato in formato TXT su: " << filename << "\n";
 }
 
+
+//CSV
+void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
+    std::ofstream out(filename.c_str());
+    if (!out) {
+        std::cerr << "Impossibile aprire il file CSV: " << filename << "\n";
+        return;
+    }
+
+    // formattazione numerica a 2 decimali
+    out << std::fixed << std::setprecision(2);
+
+    //Intestazione colonne CSV
+    out << "Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
+
+    const std::vector<std::unique_ptr<VoceCosto>>& voci = p.getVoci();
+    for (std::size_t i = 0; i < voci.size(); ++i) {
+        const std::unique_ptr<VoceCosto>& vocePtr = voci[i];
+        if (!vocePtr) continue;
+
+        out << vocePtr->getNome()           << ";"
+            << vocePtr->getUnitaMisura()    << ";"
+            << vocePtr->getQuantita()       << ";"
+            << vocePtr->getPrezzoUnitario() << ";"
+            << vocePtr->getCoefficiente()   << ";"
+            << vocePtr->subtotale()
+            << "\n";
+    }
+
+    // Righe finali con riepilogo economico
+    double imponibile = p.totale();
+    const double ALIQUOTA_IVA = 0.22;
+    double iva = imponibile * ALIQUOTA_IVA;
+    double totaleIvato = imponibile + iva;
+
+    //
+    out << "TotaleImponibile;;;;;"    << imponibile   << "\n";
+    out << "IVA(22%);;;;;"            << iva          << "\n";
+    out << "TotaleComplessivo;;;;;"   << totaleIvato  << "\n";
+
+    std::cout << "Preventivo salvato in formato CSV su: " << filename << "\n";
+}
+
+
+std::string generaIdPreventivoAutomatico() {
+    std::time_t now = std::time(nullptr);
+    std::tm* ptm = std::localtime(&now);
+
+    char buffer[32];
+    // Formato: PYYYYMMDD-HHMMSS (es. P20251214-153027)
+    std::strftime(buffer, sizeof(buffer), "P%Y%m%d-%H%M%S", ptm);
+
+    return std::string(buffer);
+}
+
+std::string trim(const std::string& s) {
+    std::size_t first = s.find_first_not_of(" \t");
+    if (first == std::string::npos) return "";
+    std::size_t last = s.find_last_not_of(" \t");
+    return s.substr(first, last - first + 1);
+}
 
 int main() {
     std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
@@ -363,15 +450,31 @@ int main() {
     std::string id;
     std::string cliente;
 
-    std::cout << "Inserisci ID preventivo (es. P2025-001): ";
-    std::getline(std::cin, id);
+    // Genero automaticamente l'ID in base alla data e ora
+    // Genero automaticamente l'ID in base alla data e ora
+    id = generaIdPreventivoAutomatico();
+    std::cout << "ID preventivo assegnato automaticamente: " << id << "\n\n";
 
-    if (id.empty()) {
-        std::getline(std::cin, id);
+    std::string lineaCliente;
+    while (true) {
+        std::cout << "Inserisci il tuo nome e cognome: ";
+        if (!std::getline(std::cin, lineaCliente)) {
+            // errore di input: provo a ripulire e ripetere
+            pulisciInput();
+            continue;
+        }
+
+        cliente = trim(lineaCliente);
+        if (cliente.empty()) {
+            std::cout << "Il nome non puo' essere vuoto. Riprova.\n\n";
+            continue;
+        }
+
+        break;
     }
 
-    std::cout << "Inserisci nome cliente: ";
-    std::getline(std::cin, cliente);
+
+
 
     GradoDifficolta grado = chiediGradoDifficolta();
     std::cout << "\nCreo il preventivo per " << cliente << "...\n";
@@ -382,24 +485,30 @@ int main() {
     RegolaTinteggiatura regolaTinteggiatura;
     RegolaCartongesso  regolaCartongesso;
     CalcolatorePreventivo calcolatore;
+    CategoriaLavoro categoriaCorrente;
+    SottoCategoriaLavoro sottocatCorrente;
+    bool haCategoriaCorrente = false;
 
     // 3) CICLO INSERIMENTO VOCI
     bool continuaInserimento = true;
 
+
     while (continuaInserimento) {
-        // Scelgo la macro-categoria
-        CategoriaLavoro categoria = chiediCategoriaLavoro();
+        // Se non ho ancora scelto una categoria/sottocategoria, la chiedo
+        if (!haCategoriaCorrente) {
+            categoriaCorrente = chiediCategoriaLavoro();
+            sottocatCorrente  = chiediSottoCategoriaLavoro(categoriaCorrente);
+            haCategoriaCorrente = true;
+        }
 
-        // Scelgo la sottocategoria in base al tipo scelto
-        SottoCategoriaLavoro sottocat = chiediSottoCategoriaLavoro(categoria);
-
-        // Mostro i cicli della categoria + sottocategoria
-        int indiceCiclo = menuCicliPerCategoria(categoria, sottocat);
+        // Mostro i cicli della categoria + sottocategoria correnti
+        int indiceCiclo = menuCicliPerCategoria(categoriaCorrente, sottocatCorrente);
 
         if (indiceCiclo < 0) {
-            // L'utente ha premuto "0" (torna indietro)
-            continuaInserimento = chiedeContinuaInserimento();
-            continue;
+            // L'utente ha premuto "0" nel menu dei cicli:
+            // → torniamo al menu principale per (Interno/Esterno/Cartongesso)
+            haCategoriaCorrente = false;
+            continue;   // si torna all'inizio del while
         }
 
         const char* nomeCiclo = CICLI_TINTEGGIATURA[indiceCiclo].nome;
@@ -422,8 +531,16 @@ int main() {
                 continue;
             }
 
+            if (mq > MQ_MAX_REALISTICI) {
+                std::cout << "Valore troppo grande (" << mq
+                          << " m^2). Inserisci un valore realistico (<= "
+                          << MQ_MAX_REALISTICI << " m^2).\n";
+                continue;
+            }
+
             break;
         }
+
 
         // Creo e aggiungo la voce
         try {
@@ -453,22 +570,30 @@ int main() {
         continuaInserimento = chiedeContinuaInserimento();
     }
 
+    preventivo.ordinaPerNome();
+
+    std::atomic<int> contatorePreventivi(0);
+
     // Riepilogo finale
     std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
     std::cout << preventivo.riepilogo() << std::endl;
 
-    // elaboro più preventivi in parallelo
+    // elaboro più preventivi in parallelo (simulazione "caricamento")
     std::vector<Preventivo> preventiviBatch;
-    preventiviBatch.push_back(preventivo);    // copia del preventivo principale
-    preventiviBatch.push_back(preventivo);   // un'altra copia
-    preventiviBatch.push_back(preventivo);  // e un'altra ancora
+    preventiviBatch.push_back(preventivo);
+    preventiviBatch.push_back(preventivo);
+    preventiviBatch.push_back(preventivo);
 
     std::vector<std::thread> threads;
+
+    std::cout << "\nElaborazione e salvataggio del preventivo in corso";
+
     for (std::size_t i = 0; i < preventiviBatch.size(); ++i) {
         threads.push_back(std::thread(
             stampaRiepilogoAsync,
             std::cref(preventiviBatch[i]),
-            static_cast<int>(i + 1)
+            static_cast<int>(i + 1),
+            std::ref(contatorePreventivi)
         ));
     }
 
@@ -478,6 +603,24 @@ int main() {
             threads[i].join();
         }
     }
+
+    std::cout << " [OK]\n";
+
+
+
+    // Salvo automaticamente il preventivo in TXT e CSV usando l'ID come nome base
+    std::string baseName = preventivo.getId();
+    if (baseName.empty()) {
+        baseName = "preventivo";
+    }
+
+    std::string filenameTxt = baseName + ".txt";
+    std::string filenameCsv = baseName + ".csv";
+
+
+    salvaPreventivoSuTxt(preventivo, filenameTxt);
+    salvaPreventivoSuCsv(preventivo, filenameCsv);
+
 
     return 0;
 }
