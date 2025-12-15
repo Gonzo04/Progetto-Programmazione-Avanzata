@@ -1,19 +1,25 @@
 #include "Preventivo.h"
-#include <numeric>     // std::accumulate
+#include "VoceCosto.h"
 #include <sstream>     // std::ostringstream "per costruire il riepilogo di una stringa"
 #include <utility>     // std::move
 #include <ctime>
 #include <algorithm>
 #include <iomanip>    // std::fixed, std::setprecision
 
+
 static const char* descriviGrado(GradoDifficolta g) {
     switch (g) {
-        case GradoDifficolta::Nuovo:      return "Nuovo";
-        case GradoDifficolta::Disabitato: return "Disabitato";
-        case GradoDifficolta::Abitato:    return "Abitato";
+        case GradoDifficolta::Nuovo:
+            return "Nuovo (immobile mai abitato)";
+        case GradoDifficolta::Disabitato:
+            return "Disabitato (vuoto, senza arredi)";
+        case GradoDifficolta::Abitato:
+            return "Abitato (arredato, occupato)";
+        default:
+            return "Stato sconosciuto";
     }
-    return "N/D";
 }
+
 
 //Costruttore: inizializzo i membri tramite std::move per evitare copie
 Preventivo::Preventivo(std::string id, std::string cliente, GradoDifficolta grado)
@@ -93,15 +99,16 @@ Preventivo& Preventivo::operator+=(std::unique_ptr<VoceCosto> voce) {
     return *this;
 }
 
-//TOTALE: calcolo del totale usando std::accumulate e una lambda ( la quale somma i subtototali di tutte le voci non nulle)
+//TOTALE: calcolo del totale usando il template aggrega e una lambda che somma i subtotali di tutte le voci non nulle.
 double Preventivo::totale() const {
-    return aggrega (
-        [](double acc, const VoceCosto& voce){
+    return aggrega(
+        [](double acc, const VoceCosto& voce) {
             return acc + voce.subtotale();
-    },
-    0.0
+        },
+        0.0
     );
 }
+
 
 // Ordina le voci per nome (ordine alfabetico crescente).
 // Per costruzione, in voci_ non inseriamo mai puntatori null.
@@ -121,15 +128,7 @@ void Preventivo::ordinaPerNome() {
     );
 }
 
-// Funzione di utilità: converte il grado di difficoltà in stringa leggibile
-static const char* gradoToString(GradoDifficolta g) {
-    switch (g) {
-        case GradoDifficolta::Nuovo:      return "Nuovo";
-        case GradoDifficolta::Disabitato: return "Disabitato";
-        case GradoDifficolta::Abitato:    return "Abitato";
-        default:                          return "Sconosciuto";
-    }
-}
+
 
 
 //Riepilogo del preventivo in formato stringa
@@ -192,18 +191,4 @@ std::string Preventivo::riepilogo() const {
 
 
 
-//Operator +: restituisce un nuovo preventivo che contiene le voci di "a" + una copia (clone) delle voci di "b".
-Preventivo operator+(const Preventivo& a, const Preventivo& b) {
-    Preventivo risultato = a; // usa il copy constructor per partire da "a"
 
-    // Per ogni voce di "b" faccio un clone e lo aggiungo al risultato.
-    const std::vector<std::unique_ptr<VoceCosto> >& vociB = b.getVoci();
-    for (std::size_t i = 0; i < vociB.size(); ++i) {
-        const std::unique_ptr<VoceCosto>& vocePtr = vociB[i];
-        if (vocePtr) {
-            risultato.aggiungiVoce(vocePtr->clone());
-        }
-    }
-
-    return risultato;
-}

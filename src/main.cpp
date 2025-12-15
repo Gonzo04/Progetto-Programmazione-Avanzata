@@ -12,6 +12,8 @@
 #include <atomic>
 #include <iomanip>
 #include <chrono>
+#include <set>
+#include <list>
 
 #include "Preventivo.h"
 #include "VoceTinteggiatura.h"
@@ -31,6 +33,8 @@ void stampaRiepilogoAsync(const Preventivo& p,
 
 // Mutex per proteggere l'output su console tra i vari thread
 std::mutex gConsoleMutex;
+double sommaTotaliThread = 0.0;  // variabile condivisa tra i thread
+
 
 
 // Macro-categoria
@@ -339,20 +343,24 @@ bool chiedeContinuaInserimento() {
     }
 }
 
-//Funzione eseguita dal thread: stampa un mini-riepilogo del preventivo
-void stampaRiepilogoAsync(const Preventivo& /*p*/,
+// Funzione eseguita dal thread: simula un'elaborazione sul preventivo
+void stampaRiepilogoAsync(const Preventivo& p,
                           int indice,
                           std::atomic<int>& contatore) {
-    // Simulo lavoro pesante variando un po' la durata per ogni thread
     std::this_thread::sleep_for(std::chrono::milliseconds(300 + indice * 150));
 
+    double totale = p.totale();
+
+    // Sezione critica: aggiorno una variabile condivisa
     {
         std::lock_guard<std::mutex> lock(gConsoleMutex);
-        std::cout << "." << std::flush;  // "pallino" di caricamento
+        sommaTotaliThread += totale;
     }
 
     ++contatore;
 }
+
+
 
 
 
@@ -385,9 +393,18 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     out << "Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
 
     const std::vector<std::unique_ptr<VoceCosto>>& voci = p.getVoci();
+
+    // Uso std::set per avere l'elenco dei cicli senza duplicati (nomi unici ordinati)
+    std::set<std::string> nomiCicliUsati;
+
+
+
+
     for (std::size_t i = 0; i < voci.size(); ++i) {
         const std::unique_ptr<VoceCosto>& vocePtr = voci[i];
         if (!vocePtr) continue;
+
+        nomiCicliUsati.insert(vocePtr->getNome());
 
         out << vocePtr->getNome()           << ";"
             << vocePtr->getUnitaMisura()    << ";"
@@ -399,17 +416,22 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     }
 
     // Righe finali con riepilogo economico
+    // Righe finali con riepilogo economico
     double imponibile = p.totale();
     const double ALIQUOTA_IVA = 0.22;
     double iva = imponibile * ALIQUOTA_IVA;
     double totaleIvato = imponibile + iva;
 
-    //
     out << "TotaleImponibile;;;;;"    << imponibile   << "\n";
     out << "IVA(22%);;;;;"            << iva          << "\n";
     out << "TotaleComplessivo;;;;;"   << totaleIvato  << "\n";
 
+    // (Uso reale di std::set: numero di tipologie di ciclo diverse usate)
+    out << "NumeroTipiCiclo;;;;;" << nomiCicliUsati.size() << "\n";
+
     std::cout << "Preventivo salvato in formato CSV su: " << filename << "\n";
+
+
 }
 
 
@@ -434,6 +456,11 @@ std::string trim(const std::string& s) {
 int main() {
     std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
 
+    // Uso std::list per lo storico ID dei preventivi creati nella sessione.
+    // Qui bastava anche un vector, ma list mi permette di mostrare un contenitore diverso
+
+
+
     // 1) Carico il listino
     ListinoPrezzi listino;
     try {
@@ -454,6 +481,7 @@ int main() {
     // Genero automaticamente l'ID in base alla data e ora
     id = generaIdPreventivoAutomatico();
     std::cout << "ID preventivo assegnato automaticamente: " << id << "\n\n";
+
 
     std::string lineaCliente;
     while (true) {
@@ -477,9 +505,10 @@ int main() {
 
 
     GradoDifficolta grado = chiediGradoDifficolta();
-    std::cout << "\nCreo il preventivo per " << cliente << "...\n";
 
     Preventivo preventivo(id, cliente, grado);
+
+
 
     // Strategy e calcolatore
     RegolaTinteggiatura regolaTinteggiatura;
@@ -584,9 +613,9 @@ int main() {
     preventiviBatch.push_back(preventivo);
     preventiviBatch.push_back(preventivo);
 
-    std::vector<std::thread> threads;
+    std::list<std::thread> threads;
 
-    std::cout << "\nElaborazione e salvataggio del preventivo in corso";
+    std::cout << "\nElaborazione e salvataggio del preventivo in corso\n";
 
     for (std::size_t i = 0; i < preventiviBatch.size(); ++i) {
         threads.push_back(std::thread(
@@ -597,15 +626,13 @@ int main() {
         ));
     }
 
+
     // Aspetto che tutti i thread abbiano finito
-    for (std::size_t i = 0; i < threads.size(); ++i) {
-        if (threads[i].joinable()) {
-            threads[i].join();
+    for (std::thread& t : threads) {
+        if (t.joinable()) {
+            t.join();
         }
     }
-
-    std::cout << " [OK]\n";
-
 
 
     // Salvo automaticamente il preventivo in TXT e CSV usando l'ID come nome base
@@ -624,6 +651,8 @@ int main() {
 
     return 0;
 }
+
+
 
 
 
