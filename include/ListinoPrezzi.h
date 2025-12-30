@@ -7,8 +7,13 @@
 
 class ListinoPrezzi {
    private:
-    std::map<std::string, double>prezziMq_; //Uso una std::map<std::string,double> per associare il nome del ciclo al suo prezzo unitario al metro quadro
-    std::map<GradoDifficolta, double>coeffDifficolta_; //Uso una std::map<GradoDifficolta,double> per parametrizzare il sovrapprezzo dovuto alla difficoltà del cantiere
+    std::map<std::string, double>prezziMq_;
+    //Uso una std::map<std::string,double>
+    //per associare il nome del ciclo al suo prezzo unitario al metro quadro
+
+    std::map<GradoDifficolta, double> coeffDifficolta_;
+    //Uso una std::map<GradoDifficolta,double>
+    //per parametrizzare il sovrapprezzo dovuto alla difficoltà del cantiere
 
     public:
     ListinoPrezzi();
@@ -19,3 +24,13 @@ class ListinoPrezzi {
 };
 
 #endif
+
+
+//ListinoPrezzi è una classe di servizio
+//centralizza i prezzi unitari e i coefficienti di difficoltà utilizzati dalle voci di preventivo
+//Utilizza contenitori STL (std::map) per associare il nome di un ciclo al prezzo €/mq
+//e il grado di difficoltà al relativo coefficiente
+//Le voci concrete (es. tinteggiatura) accedono al listino tramite un’associazione
+//evitando duplicazioni di dati e mantenendo separata la logica di calcolo dai dati economici
+//I metodi di accesso sono const e incapsulano l’uso delle mappe
+//in caso di richieste non valide, il listino può segnalare l’errore tramite eccezioni.
