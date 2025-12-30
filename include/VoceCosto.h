@@ -3,42 +3,44 @@
 
 #include <string>             //std::string
 #include <memory>             //std::unique_ptr
-
-//Classe astratta che rappresenta una voce generica di preventivo.
-//Tutte le voci concrete (tinteggiatura, cartongesso, ecc.) erediteranno da qui
+//Voce di Costo generica del preventivo (classe base astratta)
+// Classe base astratta per una voce di costo nel preventivo
+// Le classi derivate (es. tinteggiatura, cartongesso) implementano il calcolo del costo.
 class VoceCosto {
 public:
-    //Distruttore virtuale: necessario per la classe polimorfa
-    //tramite puntatori (std::unique_ptr<VoceCosto>)
+
+
+
+    //distruttore virtuale derivato dall'uso polimorfo
     virtual ~VoceCosto() = default;
 
-    //GETTER
-    //Restituiscono una referenza costante: non viene copiata la stringa
+    // Getter: per le stringhe uso const& per evitare copie
+
     const std::string& getNome() const          { return nome_; }
     const std::string& getUnitaMisura() const   { return unitaMisura_; }
     double getQuantita() const                  { return quantita_; }
     double getPrezzoUnitario() const            { return prezzoUnitario_; }
     double getCoefficiente() const              { return coefficiente_; }
 
-    //SETTER
-    //Permettono di impostare i valori con semplici assegnazioni
+    // Setter: in caso di modifica alla voce dopo la creazione
+
     void setNome(const std::string& n)          { nome_ = n; }
     void setUnitaMisura(const std::string& u)   { unitaMisura_ = u; }
     void setQuantita(double q)                  { quantita_ = q; }
     void setPrezzoUnitario(double p)            { prezzoUnitario_ = p; }
     void setCoefficiente(double c)              { coefficiente_ = c; }
 
-    //Ogni sottoclasse deve definire la propria formula di subtotale
+    // Ogni sottoclasse definisce come calcolare il costo della voce
     //Es: tinteggiatura: mq * prezzo * coefficiente.
     virtual double subtotale() const = 0;
 
-
-    virtual std::unique_ptr<VoceCosto> clone() const = 0; //usato per fare copie polimorfe delle voci (deep copy)
+    // Copia polimorfa: serve quando devo copiare un preventivo con voci di tipo diverso
+    virtual std::unique_ptr<VoceCosto> clone() const = 0;
 
 
 protected:
-    //PROTECTED: accessibili dalle derivate ma non dall'esterno.
-    //dall'esterno si passa per il getter e setter
+    // protected: VoceCosto non si istanzia direttamente, ma solo tramite classi derivate
+
     VoceCosto(const std::string& nome,
               const std::string& unita,
               double quantita,
@@ -49,12 +51,22 @@ protected:
           prezzoUnitario_(prezzo),
           coefficiente_(1.0) {}
 
-    std::string nome_;          // es. "Ciclo idropittura traspirante..."
+    std::string nome_;          // nome del ciclo/lavorazione
     std::string unitaMisura_;   // es. "m^2"
-    double quantita_       = 0.0;  // es. metri quadri
-    double prezzoUnitario_ = 0.0;  // prezzo per unità (€/m^2)
-    double coefficiente_   = 1.0;  // coeff. (nuovo / disabitato / abitato)
+    double quantita_       = 0.0;
+    double prezzoUnitario_ = 0.0;  // €/unità
+    double coefficiente_   = 1.0;  // coeff. legato alla difficoltà
+
 
 };
 
 #endif
+
+// Questo file definisce la classe astratta VoceCosto,
+// che rappresenta una singola voce di costo dentro un preventivo.
+// La classe viene usata in modo polimorfo: il preventivo conserva le voci come std::unique_ptr<VoceCosto>
+// così posso mettere nello stesso contenitore voci di tipi diversi (es. tinteggiatura e cartongesso).
+// Ogni classe derivata deve implementare subtotale() per calcolare il costo della voce e clone()
+// per permettere la copia profonda polimorfa
+// (necessaria quando si copia un Preventivo, dato che unique_ptr non è copiabile e non posso copiare oggetti senza conoscere il tipo concreto).
+// Il costruttore è protected perché VoceCosto non deve essere istanziata direttamente ma solo tramite classi derivate.
