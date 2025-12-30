@@ -379,6 +379,7 @@ void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
 
 
 //CSV
+//CSV
 void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     std::ofstream out(filename.c_str());
     if (!out) {
@@ -389,26 +390,28 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     // formattazione numerica a 2 decimali
     out << std::fixed << std::setprecision(2);
 
-    //Intestazione colonne CSV
-    out << "Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
+    // Intestazione colonne CSV
+    out << "TipoVoce;Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
 
     const std::vector<std::unique_ptr<VoceCosto>>& voci = p.getVoci();
 
     // Uso std::set per avere l'elenco dei cicli senza duplicati (nomi unici ordinati)
     std::set<std::string> nomiCicliUsati;
 
-
-
-
     for (std::size_t i = 0; i < voci.size(); ++i) {
         const std::unique_ptr<VoceCosto>& vocePtr = voci[i];
         if (!vocePtr) continue;
 
+        // dynamic_cast: controllo il tipo reale della voce (polimorfismo)
+        const VoceCartongesso* vc = dynamic_cast<const VoceCartongesso*>(vocePtr.get());
+        std::string tipo = (vc ? "Cartongesso" : "Tinteggiatura");
+
         nomiCicliUsati.insert(vocePtr->getNome());
 
-        out << vocePtr->getNome()           << ";"
-            << vocePtr->getUnitaMisura()    << ";"
-            << vocePtr->getQuantita()       << ";"
+        out << tipo                     << ";"
+            << vocePtr->getNome()        << ";"
+            << vocePtr->getUnitaMisura() << ";"
+            << vocePtr->getQuantita()    << ";"
             << vocePtr->getPrezzoUnitario() << ";"
             << vocePtr->getCoefficiente()   << ";"
             << vocePtr->subtotale()
@@ -416,23 +419,21 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     }
 
     // Righe finali con riepilogo economico
-    // Righe finali con riepilogo economico
     double imponibile = p.totale();
     const double ALIQUOTA_IVA = 0.22;
     double iva = imponibile * ALIQUOTA_IVA;
     double totaleIvato = imponibile + iva;
 
-    out << "TotaleImponibile;;;;;"    << imponibile   << "\n";
-    out << "IVA(22%);;;;;"            << iva          << "\n";
-    out << "TotaleComplessivo;;;;;"   << totaleIvato  << "\n";
+    out << "TotaleImponibile;;;;;"  << imponibile  << "\n";
+    out << "IVA(22%);;;;;"          << iva         << "\n";
+    out << "TotaleComplessivo;;;;;" << totaleIvato << "\n";
 
-    // (Uso reale di std::set: numero di tipologie di ciclo diverse usate)
+    // Uso reale di std::set: numero di tipologie di ciclo diverse usate
     out << "NumeroTipiCiclo;;;;;" << nomiCicliUsati.size() << "\n";
 
     std::cout << "Preventivo salvato in formato CSV su: " << filename << "\n";
-
-
 }
+
 
 
 std::string generaIdPreventivoAutomatico() {

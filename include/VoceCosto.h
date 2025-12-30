@@ -3,8 +3,7 @@
 
 #include <string>             //std::string
 #include <memory>             //std::unique_ptr
-//Voce di Costo generica del preventivo (classe base astratta)
-// Classe base astratta per una voce di costo nel preventivo
+//VoceCosto generica del preventivo (classe base astratta)
 // Le classi derivate (es. tinteggiatura, cartongesso) implementano il calcolo del costo.
 class VoceCosto {
 public:
