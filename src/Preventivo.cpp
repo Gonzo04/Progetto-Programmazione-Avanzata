@@ -5,6 +5,7 @@
 #include <ctime>
 #include <algorithm>
 #include <iomanip>    // std::fixed, std::setprecision
+#include <numeric>
 
 
 static const char* descriviGrado(GradoDifficolta g) {
@@ -38,8 +39,7 @@ Preventivo::Preventivo(const Preventivo& other)
     voci_.reserve(other.voci_.size());
 
     //Per ogni voce dell'altro preventivo, chiamo clone() (polimorfo) e inserisco il unique_ptr risultante nel mio vector
-    for (std::size_t i = 0; i < other.voci_.size(); ++i) {
-        const std::unique_ptr<VoceCosto>& vocePtr = other.voci_[i];
+    for (const auto & vocePtr : other.voci_) {
         if (vocePtr) {
             voci_.push_back(vocePtr->clone());
         }
@@ -58,8 +58,7 @@ Preventivo& Preventivo::operator=(const Preventivo& other) {
     voci_.reserve(other.voci_.size());
 
     //copia profonda come nel costruttore di copia
-    for (std::size_t i = 0; i < other.voci_.size(); ++i) {
-        const std::unique_ptr<VoceCosto>& vocePtr = other.voci_[i];
+    for (const auto & vocePtr : other.voci_) {
         if (vocePtr) {
             voci_.push_back(vocePtr->clone());
         }
@@ -99,13 +98,16 @@ Preventivo& Preventivo::operator+=(std::unique_ptr<VoceCosto> voce) {
     return *this;
 }
 
-//TOTALE: calcolo del totale usando il template aggrega e una lambda che somma i subtotali di tutte le voci non nulle.
 double Preventivo::totale() const {
-    return aggrega(
-        [](double acc, const VoceCosto& voce) {
-            return acc + voce.subtotale();
-        },
-        0.0
+    // std::accumulate(inizio, fine, valore_iniziale, operazione_binaria)
+    return std::accumulate(
+        voci_.begin(),
+        voci_.end(),
+        0.0,
+        [](double acc, const std::unique_ptr<VoceCosto>& voce) {
+            // La lambda somma l'accumulatore corrente col subtotale della voce
+            return acc + voce->subtotale();
+        }
     );
 }
 
@@ -178,7 +180,7 @@ std::string Preventivo::riepilogo() const {
 
     // Calcolo imponibile, IVA e totale "in stile preventivo"
     double imponibile = totale();
-    const double ALIQUOTA_IVA = 0.22;
+    constexpr double ALIQUOTA_IVA = 0.22;
     double iva = imponibile * ALIQUOTA_IVA;
     double totaleIvato = imponibile + iva;
 

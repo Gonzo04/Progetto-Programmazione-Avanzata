@@ -1,4 +1,4 @@
-#include "VoceCartongessoBuilder.h"
+    #include "VoceCartongessoBuilder.h"
 
 
 #include "ListinoPrezzi.h"
@@ -30,9 +30,9 @@ VoceCartongessoBuilder& VoceCartongessoBuilder::setMq(double mq)
     return *this;
 }
 
-VoceCartongessoBuilder& VoceCartongessoBuilder::setListino(const ListinoPrezzi& listino)
+VoceCartongessoBuilder& VoceCartongessoBuilder::setListino(const std::shared_ptr<ListinoPrezzi>& listino)
 {
-    listino_ = &listino;
+    listino_ = listino;
     return *this;
 }
 

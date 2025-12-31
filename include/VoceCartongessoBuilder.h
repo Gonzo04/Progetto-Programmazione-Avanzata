@@ -18,7 +18,7 @@ public:
     // Metodi di configurazione (ritornano *this per permettere il chaining)
     VoceCartongessoBuilder& setNomeCiclo(const std::string& nome);
     VoceCartongessoBuilder& setMq(double mq);
-    VoceCartongessoBuilder& setListino(const ListinoPrezzi& listino);
+    VoceCartongessoBuilder& setListino(const std::shared_ptr<ListinoPrezzi> & listino);
     VoceCartongessoBuilder& setGrado(GradoDifficolta grado);
 
     // Costruisce l'oggetto finale (VoceCartongesso) e lo ritorna come VoceCosto
@@ -27,7 +27,7 @@ public:
 private:
     std::string nomeCiclo_;
     double mq_;
-    const ListinoPrezzi* listino_;   // non owning
+    std::shared_ptr<ListinoPrezzi> listino_;
     GradoDifficolta grado_;
 };
 
