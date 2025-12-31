@@ -17,4 +17,6 @@ add_executable(Progetto_CLion
         src/RegolaCartongesso.cpp
         src/CalcolatorePreventivo.cpp
         src/VoceCartongessoBuilder.cpp
+        src/Utils.cpp
+
 )

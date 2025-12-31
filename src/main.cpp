@@ -1,14 +1,14 @@
 #include <iostream>
-#include <memory>
+#include <memory>       // per std::shared_ptr, std::make_shared
 #include <limits>
 #include <stdexcept>
 #include <cctype>
-#include <thread>      // per std::thread
+#include <thread>       // per std::thread
 #include <mutex>
-#include <vector>      // per std::vector di thread
-#include <functional>  // per std::cref
-#include <fstream>    // per std::ofstream
-#include <ctime>   // per l'ID utente
+#include <vector>
+#include <functional>
+#include <fstream>
+#include <ctime>
 #include <atomic>
 #include <iomanip>
 #include <chrono>
@@ -23,19 +23,12 @@
 #include "RegolaTinteggiatura.h"
 #include "RegolaCartongesso.h"
 #include "CalcolatorePreventivo.h"
+#include "Utils.h"      // <--- INCLUDE LE TUE NUOVE FUNZIONI DI UTILITÀ
 
-static const double MQ_MAX_REALISTICI = 100000.0; // 100.000 m^2 limite di sicurezza
+static const double MQ_MAX_REALISTICI = 1000000.0;
 
-
-void stampaRiepilogoAsync(const Preventivo& p,
-                          int indice,
-                          std::atomic<int>& contatore);
-
-// Mutex per proteggere l'output su console tra i vari thread
+// Mutex per proteggere l'output su console (usato dal thread di salvataggio)
 std::mutex gConsoleMutex;
-double sommaTotaliThread = 0.0;  // variabile condivisa tra i thread
-
-
 
 // Macro-categoria
 enum class CategoriaLavoro {
@@ -67,73 +60,36 @@ struct CicloInfo {
 // Elenco completo dei cicli
 static const CicloInfo CICLI_TINTEGGIATURA[] = {
     // === INTERNO ===
-    // Interno civile
-    {"Idropittura traspirante",        5.00,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
-    {"Idropittura lavabile acrilica",  6.50,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
-    {"Smalto all'acqua interni",       8.50,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
-    {"Ciclo decorativo",              15.00,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
-    {"Carta da parati",               18.00,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
-
-    // Interno industriale
-    {"Smalto industriale",             7.00,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoIndustriale},
-    {"Traspirante a spruzzo",          4.00,
-     CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoIndustriale},
+    {"Idropittura traspirante",        5.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
+    {"Idropittura lavabile acrilica",  6.50, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
+    {"Smalto all'acqua interni",       8.50, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
+    {"Ciclo decorativo",              15.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
+    {"Carta da parati",               18.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
+    {"Smalto industriale",             7.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoIndustriale},
+    {"Traspirante a spruzzo",          4.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoIndustriale},
 
     // === ESTERNO ===
-    // Esterno civile
-    {"Intonachino colorato",          18.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
-    {"Rasatura armata + Intonachino", 25.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
-    {"Rasatura panno + Lavabile",     22.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
-    {"Cappotto termico",              50.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
-    {"Lavabile autopulente esterno",  10.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
-
-    // Esterno industriale
-    {"Lavabile esterno industriale",   9.00,
-     CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoIndustriale},
+    {"Intonachino colorato",          18.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
+    {"Rasatura armata + Intonachino", 25.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
+    {"Rasatura panno + Lavabile",     22.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
+    {"Cappotto termico",              50.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
+    {"Lavabile autopulente esterno",  10.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoCivile},
+    {"Lavabile esterno industriale",   9.00, CategoriaLavoro::Esterno, SottoCategoriaLavoro::EsternoIndustriale},
 
     // === CARTONGESSO ===
-    // Contropareti
-    {"Controparete isolata",          35.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Contropareti},
-    {"Controparete non isolata",      28.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Contropareti},
-
-    // Pareti divisorie
-    {"Parete divisoria isolata",      42.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
-    {"Parete divisoria non isolata",  38.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
-    {"Parete Idro (bagni)",           45.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
-    {"Parete REI (antincendio)",      55.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
-
-    // Controsoffitti
-    {"Controsoffitto standard",       32.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
-    {"Controsoffitto fonoassorbente", 48.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
-    {"Controsoffitto fibra minerale", 30.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
-
-    // Finitura su muratura
-    {"Rasatura gesso su muratura",    12.00,
-     CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_FinituraMuratura}
+    {"Controparete isolata",          35.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Contropareti},
+    {"Controparete non isolata",      28.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Contropareti},
+    {"Parete divisoria isolata",      42.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
+    {"Parete divisoria non isolata",  38.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
+    {"Parete Idro (bagni)",           45.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
+    {"Parete REI (antincendio)",      55.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_ParetiDivisorie},
+    {"Controsoffitto standard",       32.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
+    {"Controsoffitto fonoassorbente", 48.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
+    {"Controsoffitto fibra minerale", 30.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
+    {"Rasatura gesso su muratura",    12.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_FinituraMuratura}
 };
 
-static const std::size_t NUM_CICLI =
-    sizeof(CICLI_TINTEGGIATURA) / sizeof(CicloInfo);
+static const std::size_t NUM_CICLI = sizeof(CICLI_TINTEGGIATURA) / sizeof(CicloInfo);
 
 bool isCartongessoIndex(std::size_t index) {
     return CICLI_TINTEGGIATURA[index].categoria == CategoriaLavoro::Cartongesso;
@@ -149,26 +105,17 @@ void popolaListino(ListinoPrezzi& listino) {
     listino.impostaCoeff(GradoDifficolta::Abitato,    1.15);
 }
 
-void pulisciInput() {
-    std::cin.clear();
-    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-}
+// -- FUNZIONI DI INPUT REFACTORIZZATE (Usano utils.h) --
 
 GradoDifficolta chiediGradoDifficolta() {
-    int scelta = 0;
     while (true) {
         std::cout << "Seleziona la tipologia del cantiere:\n";
         std::cout << " 1) Nuovo\n";
         std::cout << " 2) Disabitato\n";
         std::cout << " 3) Abitato\n";
-        std::cout << "Scelta: ";
-        std::cin >> scelta;
 
-        if (!std::cin) {
-            pulisciInput();
-            std::cout << "Input non valido, riprova.\n\n";
-            continue;
-        }
+        // Uso la tua nuova funzione robusta
+        int scelta = leggiIntero("Scelta: ");
 
         if (scelta == 1) return GradoDifficolta::Nuovo;
         if (scelta == 2) return GradoDifficolta::Disabitato;
@@ -184,16 +131,8 @@ CategoriaLavoro chiediCategoriaLavoro() {
         std::cout << " 1) Interno\n";
         std::cout << " 2) Esterno\n";
         std::cout << " 3) Cartongesso\n";
-        std::cout << "Scelta: ";
 
-        int scelta = 0;
-        std::cin >> scelta;
-
-        if (!std::cin) {
-            pulisciInput();
-            std::cout << "Input non valido, riprova.\n";
-            continue;
-        }
+        int scelta = leggiIntero("Scelta: ");
 
         switch (scelta) {
             case 1: return CategoriaLavoro::Interno;
@@ -205,7 +144,6 @@ CategoriaLavoro chiediCategoriaLavoro() {
     }
 }
 
-// Nuova funzione: chiede la sottocategoria in base alla macro-categoria
 SottoCategoriaLavoro chiediSottoCategoriaLavoro(CategoriaLavoro categoria)
 {
     while (true) {
@@ -224,15 +162,7 @@ SottoCategoriaLavoro chiediSottoCategoriaLavoro(CategoriaLavoro categoria)
             std::cout << " 4) Finitura su muratura\n";
         }
 
-        std::cout << "Scelta: ";
-        int scelta = 0;
-        std::cin >> scelta;
-
-        if (!std::cin) {
-            pulisciInput();
-            std::cout << "Input non valido, riprova.\n";
-            continue;
-        }
+        int scelta = leggiIntero("Scelta: ");
 
         if (categoria == CategoriaLavoro::Interno) {
             if (scelta == 1) return SottoCategoriaLavoro::InternoCivile;
@@ -257,6 +187,7 @@ int menuCicliPerCategoria(CategoriaLavoro categoria,
     std::cout << "\n--- Seleziona un ciclo di lavorazione ---\n";
 
     int voceMenu = 1;
+    // Mappa locale per convertire "scelta menu" (1,2,3) -> "indice array globale"
     int mappaSceltaVersoIndice[NUM_CICLI];
 
     for (std::size_t i = 0; i < NUM_CICLI; ++i) {
@@ -278,131 +209,48 @@ int menuCicliPerCategoria(CategoriaLavoro categoria,
 
     std::cout << " 0) Torna indietro\n";
 
-    int scelta = -1;
     while (true) {
-        std::cout << "Scelta: ";
-        std::cin >> scelta;
+        int scelta = leggiIntero("Scelta: ");
 
-        if (!std::cin) {
-            pulisciInput();
-            std::cout << "Input non valido, riprova.\n";
-            continue;
-        }
-
-        if (scelta == 0) {
-            return -1;
-        }
+        if (scelta == 0) return -1;
 
         if (scelta >= 1 && scelta < voceMenu) {
             return mappaSceltaVersoIndice[scelta];
         }
-
         std::cout << "Scelta fuori range, riprova.\n";
     }
 }
 
-// Chiede se continuare dopo aver inserito una voce
-bool chiedeContinuaInserimento() {
-    // Pulisco eventuali residui (es. '\n') lasciati da operator>>
-    pulisciInput();
-
-    std::string linea;
-
-    while (true) {
-        std::cout << "\nVuoi aggiungere un'altra voce? (S/N): ";
-
-        // Leggo l'intera riga così com'è
-        if (!std::getline(std::cin, linea)) {
-            pulisciInput();
-            continue;
-        }
-
-        // Cerco il primo carattere non bianco
-        char risposta = '\0';
-        for (char c : linea) {
-            if (!std::isspace(static_cast<unsigned char>(c))) {
-                risposta = c;
-                break;
-            }
-        }
-
-        // Se l'utente ha solo premuto Invio (o solo spazi), non stampo errori:
-        // semplicemente ripeto la stessa domanda
-        if (risposta == '\0') {
-            continue;
-        }
-
-        if (risposta == 'S' || risposta == 's') {
-            return true;
-        }
-        if (risposta == 'N' || risposta == 'n') {
-            return false;
-        }
-
-        std::cout << "Risposta non valida. Inserisci S o N.\n";
-    }
-}
-
-// Funzione eseguita dal thread: simula un'elaborazione sul preventivo
-void stampaRiepilogoAsync(const Preventivo& p,
-                          int indice,
-                          std::atomic<int>& contatore) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(300 + indice * 150));
-
-    double totale = p.totale();
-
-    // Sezione critica: aggiorno una variabile condivisa
-    {
-        std::lock_guard<std::mutex> lock(gConsoleMutex);
-        sommaTotaliThread += totale;
-    }
-
-    ++contatore;
-}
-
-
-
-
-
+// Funzione helper per salvataggio TXT
 void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
     std::ofstream out(filename.c_str());
     if (!out) {
+        // Uso il mutex perché questa funzione potrebbe essere chiamata dal thread secondario
+        std::lock_guard<std::mutex> lock(gConsoleMutex);
         std::cerr << "Impossibile aprire il file di testo: " << filename << "\n";
         return;
     }
-
-    // Uso direttamente il riepilogo già formattato
     out << p.riepilogo();
-
-    std::cout << "Preventivo salvato in formato TXT su: " << filename << "\n";
 }
 
-
-//CSV
-//CSV
+// Funzione helper per salvataggio CSV
 void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     std::ofstream out(filename.c_str());
     if (!out) {
+        std::lock_guard<std::mutex> lock(gConsoleMutex);
         std::cerr << "Impossibile aprire il file CSV: " << filename << "\n";
         return;
     }
 
-    // formattazione numerica a 2 decimali
     out << std::fixed << std::setprecision(2);
-
-    // Intestazione colonne CSV
     out << "TipoVoce;Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
 
     const std::vector<std::unique_ptr<VoceCosto>>& voci = p.getVoci();
-
-    // Uso std::set per avere l'elenco dei cicli senza duplicati (nomi unici ordinati)
     std::set<std::string> nomiCicliUsati;
 
-    for (std::size_t i = 0; i < voci.size(); ++i) {
-        const std::unique_ptr<VoceCosto>& vocePtr = voci[i];
+    for (const auto& vocePtr : voci) {
         if (!vocePtr) continue;
 
-        // dynamic_cast: controllo il tipo reale della voce (polimorfismo)
         const VoceCartongesso* vc = dynamic_cast<const VoceCartongesso*>(vocePtr.get());
         std::string tipo = (vc ? "Cartongesso" : "Tinteggiatura");
 
@@ -418,54 +266,33 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
             << "\n";
     }
 
-    // Righe finali con riepilogo economico
     double imponibile = p.totale();
-    const double ALIQUOTA_IVA = 0.22;
-    double iva = imponibile * ALIQUOTA_IVA;
+    double iva = imponibile * 0.22;
     double totaleIvato = imponibile + iva;
 
     out << "TotaleImponibile;;;;;"  << imponibile  << "\n";
     out << "IVA(22%);;;;;"          << iva         << "\n";
     out << "TotaleComplessivo;;;;;" << totaleIvato << "\n";
-
-    // Uso reale di std::set: numero di tipologie di ciclo diverse usate
     out << "NumeroTipiCiclo;;;;;" << nomiCicliUsati.size() << "\n";
-
-    std::cout << "Preventivo salvato in formato CSV su: " << filename << "\n";
 }
-
-
 
 std::string generaIdPreventivoAutomatico() {
     std::time_t now = std::time(nullptr);
     std::tm* ptm = std::localtime(&now);
-
     char buffer[32];
-    // Formato: PYYYYMMDD-HHMMSS (es. P20251214-153027)
     std::strftime(buffer, sizeof(buffer), "P%Y%m%d-%H%M%S", ptm);
-
     return std::string(buffer);
-}
-
-std::string trim(const std::string& s) {
-    std::size_t first = s.find_first_not_of(" \t");
-    if (first == std::string::npos) return "";
-    std::size_t last = s.find_last_not_of(" \t");
-    return s.substr(first, last - first + 1);
 }
 
 int main() {
     std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
 
-    // Uso std::list per lo storico ID dei preventivi creati nella sessione.
-    // Qui bastava anche un vector, ma list mi permette di mostrare un contenitore diverso
+    // 1) CREAZIONE LISTINO CON SHARED POINTER
+    // Soddisfa il requisito "smart pointer" per la risorsa condivisa
+    auto listino = std::make_shared<ListinoPrezzi>();
 
-
-
-    // 1) Carico il listino
-    ListinoPrezzi listino;
     try {
-        popolaListino(listino);
+        popolaListino(*listino); // passo il valore puntato
         std::cout << "Listino caricato con " << NUM_CICLI
                   << " cicli disponibili.\n\n";
     } catch (const std::exception& e) {
@@ -474,105 +301,78 @@ int main() {
         return 1;
     }
 
-    // 2) Dati cliente e preventivo
-    std::string id;
-    std::string cliente;
-
-    // Genero automaticamente l'ID in base alla data e ora
-    // Genero automaticamente l'ID in base alla data e ora
-    id = generaIdPreventivoAutomatico();
+    // 2) INPUT DATI CLIENTE
+    std::string id = generaIdPreventivoAutomatico();
     std::cout << "ID preventivo assegnato automaticamente: " << id << "\n\n";
 
-
-    std::string lineaCliente;
+    std::string cliente;
     while (true) {
         std::cout << "Inserisci il tuo nome e cognome: ";
-        if (!std::getline(std::cin, lineaCliente)) {
-            // errore di input: provo a ripulire e ripetere
-            pulisciInput();
-            continue;
+        std::string linea;
+        if (!std::getline(std::cin, linea)) {
+            // Se c'è un errore grave nello stream (es. CTRL+Z / CTRL+D), esco
+            return 1;
         }
 
-        cliente = trim(lineaCliente);
+        // Nota: trim() l'hai spostata in utils.cpp, quindi la chiamiamo da lì
+        cliente = trim(linea);
         if (cliente.empty()) {
             std::cout << "Il nome non puo' essere vuoto. Riprova.\n\n";
             continue;
         }
-
         break;
     }
-
-
-
 
     GradoDifficolta grado = chiediGradoDifficolta();
 
     Preventivo preventivo(id, cliente, grado);
 
-
-
     // Strategy e calcolatore
     RegolaTinteggiatura regolaTinteggiatura;
     RegolaCartongesso  regolaCartongesso;
     CalcolatorePreventivo calcolatore;
+
+    // Variabili stato loop
     CategoriaLavoro categoriaCorrente;
     SottoCategoriaLavoro sottocatCorrente;
     bool haCategoriaCorrente = false;
-
-    // 3) CICLO INSERIMENTO VOCI
     bool continuaInserimento = true;
 
-
+    // 3) CICLO INSERIMENTO VOCI
     while (continuaInserimento) {
-        // Se non ho ancora scelto una categoria/sottocategoria, la chiedo
         if (!haCategoriaCorrente) {
             categoriaCorrente = chiediCategoriaLavoro();
             sottocatCorrente  = chiediSottoCategoriaLavoro(categoriaCorrente);
             haCategoriaCorrente = true;
         }
 
-        // Mostro i cicli della categoria + sottocategoria correnti
         int indiceCiclo = menuCicliPerCategoria(categoriaCorrente, sottocatCorrente);
 
         if (indiceCiclo < 0) {
-            // L'utente ha premuto "0" nel menu dei cicli:
-            // → torniamo al menu principale per (Interno/Esterno/Cartongesso)
             haCategoriaCorrente = false;
-            continue;   // si torna all'inizio del while
+            continue;
         }
 
         const char* nomeCiclo = CICLI_TINTEGGIATURA[indiceCiclo].nome;
 
-        // Chiedo i metri quadri
+        // Loop mq robusto
         double mq = 0.0;
         while (true) {
-            std::cout << "Inserisci i metri quadri per \""
-                      << nomeCiclo << "\": ";
-            std::cin >> mq;
-
-            if (!std::cin) {
-                pulisciInput();
-                std::cout << "Input non valido, riprova.\n";
-                continue;
-            }
+            // Uso la funzione helper per i double
+            mq = leggiDouble("Inserisci i metri quadri per \"" + std::string(nomeCiclo) + "\": ");
 
             if (mq <= 0.0) {
                 std::cout << "I metri quadri devono essere > 0.\n";
                 continue;
             }
-
             if (mq > MQ_MAX_REALISTICI) {
-                std::cout << "Valore troppo grande (" << mq
-                          << " m^2). Inserisci un valore realistico (<= "
-                          << MQ_MAX_REALISTICI << " m^2).\n";
+                std::cout << "Valore troppo grande. Inserisci un valore realistico (<= "
+                          << MQ_MAX_REALISTICI << ").\n";
                 continue;
             }
-
             break;
         }
 
-
-        // Creo e aggiungo la voce
         try {
             std::string nomeCicloStr = nomeCiclo;
 
@@ -582,10 +382,12 @@ int main() {
                 calcolatore.setRegola(&regolaTinteggiatura);
             }
 
+            // Nota: Qui passiamo *listino (reference).
+            // Se aggiorni CalcolatorePreventivo per prendere shared_ptr, passa direttamente 'listino'.
             calcolatore.aggiungiLavoro(preventivo,
                                        nomeCicloStr,
                                        mq,
-                                       listino,
+                                       *listino,
                                        grado);
 
             std::cout << " -> Aggiunta voce: " << nomeCiclo
@@ -596,64 +398,49 @@ int main() {
                       << e.what() << std::endl;
         }
 
-        // Dopo aver aggiunto la voce, chiedo subito se continuare
-        continuaInserimento = chiedeContinuaInserimento();
+        continuaInserimento = chiediConferma("\nVuoi aggiungere un'altra voce?");
     }
 
     preventivo.ordinaPerNome();
 
-    std::atomic<int> contatorePreventivi(0);
-
-    // Riepilogo finale
+    // RIEPILOGO FINALE
     std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
     std::cout << preventivo.riepilogo() << std::endl;
 
-    // elaboro più preventivi in parallelo (simulazione "caricamento")
-    std::vector<Preventivo> preventiviBatch;
-    preventiviBatch.push_back(preventivo);
-    preventiviBatch.push_back(preventivo);
-    preventiviBatch.push_back(preventivo);
+    // 4) THREADING: SALVATAGGIO IN BACKGROUND
+    // Questo approccio è "reale": sposto l'operazione lenta (I/O su disco) su un altro thread
+    // per non bloccare l'eventuale interfaccia (simulata qui dal main thread che attende)
 
-    std::list<std::thread> threads;
+    std::cout << "\n[INFO] Avvio salvataggio file in background (thread parallelo)...\n";
 
-    std::cout << "\nElaborazione e salvataggio del preventivo in corso\n";
+    std::thread t_salvataggio([&preventivo]() {
+        // Simuliamo un leggero ritardo per rendere evidente il background work
+        std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    for (std::size_t i = 0; i < preventiviBatch.size(); ++i) {
-        threads.push_back(std::thread(
-            stampaRiepilogoAsync,
-            std::cref(preventiviBatch[i]),
-            static_cast<int>(i + 1),
-            std::ref(contatorePreventivi)
-        ));
+        std::string baseName = preventivo.getId();
+        if (baseName.empty()) baseName = "preventivo";
+
+        salvaPreventivoSuTxt(preventivo, baseName + ".txt");
+        salvaPreventivoSuCsv(preventivo, baseName + ".csv");
+
+        // Uso il mutex per stampare a video senza sovrappormi al main
+        std::lock_guard<std::mutex> lock(gConsoleMutex);
+        std::cout << "\n[BACKGROUND] Salvataggio completato! File generati: "
+                  << baseName << ".txt / .csv\n"
+                  << "Premi INVIO per uscire definitivamente.\n";
+    });
+
+    std::cout << "Il programma principale ha terminato l'inserimento.\n";
+    std::cout << "Attendo completamento salvataggio...\n";
+
+    // Attendo che il thread finisca prima di chiudere il programma
+    if (t_salvataggio.joinable()) {
+        t_salvataggio.join();
     }
 
-
-    // Aspetto che tutti i thread abbiano finito
-    for (std::thread& t : threads) {
-        if (t.joinable()) {
-            t.join();
-        }
-    }
-
-
-    // Salvo automaticamente il preventivo in TXT e CSV usando l'ID come nome base
-    std::string baseName = preventivo.getId();
-    if (baseName.empty()) {
-        baseName = "preventivo";
-    }
-
-    std::string filenameTxt = baseName + ".txt";
-    std::string filenameCsv = baseName + ".csv";
-
-
-    salvaPreventivoSuTxt(preventivo, filenameTxt);
-    salvaPreventivoSuCsv(preventivo, filenameCsv);
-
+    // Pausa finale per permettere di leggere
+    std::string dummy;
+    std::getline(std::cin, dummy);
 
     return 0;
 }
-
-
-
-
-
