@@ -23,7 +23,7 @@
 #include "CalcolatorePreventivo.h"
 #include "utils.h"
 
-static const double MQ_MAX_REALISTICI = 1000000.0;
+static constexpr double MQ_MAX_REALISTICI = 1000000.0;
 
 // Mutex per proteggere l'output su console
 std::mutex gConsoleMutex;
@@ -82,7 +82,7 @@ static const CicloInfo CICLI_TINTEGGIATURA[] = {
     {"Controsoffitto fibra minerale", 30.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_Controsoffitti},
     {"Rasatura gesso su muratura", 12.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_FinituraMuratura}
 };
-static const std::size_t NUM_CICLI = sizeof(CICLI_TINTEGGIATURA) / sizeof(CicloInfo);
+static constexpr std::size_t NUM_CICLI = sizeof(CICLI_TINTEGGIATURA) / sizeof(CicloInfo);
 
 bool isCartongessoIndex(std::size_t index) {
     return CICLI_TINTEGGIATURA[index].categoria == CategoriaLavoro::Cartongesso;
@@ -287,7 +287,7 @@ int main() {
             if (isCartongessoIndex(idx)) calcolatore.setRegola(&regolaCartongesso);
             else calcolatore.setRegola(&regolaTinteggiatura);
 
-            calcolatore.aggiungiLavoro(preventivo, nomeCiclo, mq, *listino, grado);
+            calcolatore.aggiungiLavoro(preventivo, nomeCiclo, mq, listino, grado);
             std::cout << " -> Aggiunta voce: " << nomeCiclo << "\n";
         } catch (const std::exception& e) {
             std::cerr << "Errore creazione voce: " << e.what() << "\n";
@@ -300,7 +300,7 @@ int main() {
     std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
     std::cout << preventivo.riepilogo() << std::endl;
 
-    std::cout << "\n[INFO] Avvio salvataggio file in background...\n";
+    std::cout << "\nSalvataggio in corso...\n";
 
     // [REQUISITO LIST]
     // Uso una lista di thread per gestire i task in background.
@@ -318,11 +318,8 @@ int main() {
         salvaPreventivoSuCsv(preventivo, baseName + ".csv");
 
         std::lock_guard<std::mutex> lock(gConsoleMutex);
-        std::cout << "\n[BACKGROUND] Salvataggio completato! File: " << baseName << "\n";
-        std::cout << "Premi INVIO per uscire.\n";
+        std::cout << "\nSalvataggio in csv e txt completato! File: " << baseName << "\n";
     });
-
-    std::cout << "Il programma principale attende la fine dei lavori...\n";
 
     // Attesa fine thread (Join)
     for (std::thread& t : threadPool) {

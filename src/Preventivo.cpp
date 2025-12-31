@@ -111,6 +111,17 @@ double Preventivo::totale() const {
     );
 }
 
+double Preventivo::totaleMq() const {
+    // Utilizzo il mio template 'aggrega' per dimostrare la flessibilità del codice.
+    // Qui aggrego le quantità (mq) invece dei prezzi.
+    return aggrega(
+        [](double acc, const VoceCosto& voce) {
+            return acc + voce.getQuantita();
+        },
+        0.0 // Valore iniziale
+    );
+}
+
 
 // Ordina le voci per nome (ordine alfabetico crescente).
 // Per costruzione, in voci_ non inseriamo mai puntatori null.
@@ -150,6 +161,7 @@ std::string Preventivo::riepilogo() const {
     oss << "Data: " << dataBuf << "\n";
     oss << "Preventivo " << id_ << " - Cliente: " << cliente_ << "\n";
     oss << "Numero voci: " << voci_.size() << "\n";
+    oss << "Totale Mq lavorati: " << totaleMq() << " mq\n";
     oss << "Stato dell'immobile: " << descriviGrado(grado_) << "\n\n";
 
     // da qui in poi voglio formattazione a 2 decimali per i numeri

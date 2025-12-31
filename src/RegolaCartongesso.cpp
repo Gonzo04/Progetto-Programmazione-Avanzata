@@ -1,17 +1,20 @@
 #include "RegolaCartongesso.h"
 #include "VoceCartongessoBuilder.h"
 
-std::unique_ptr<VoceCosto> RegolaCartongesso::creaVoce(const std::string& nomeCiclo,
-                            double mq,
-                            const ListinoPrezzi& listino,
-                            GradoDifficolta grado) const
-{
+// [MODIFICA] Aggiornata la firma dell'implementazione
+std::unique_ptr<VoceCosto> RegolaCartongesso::creaVoce(
+    const std::string& nomeCiclo,
+    double mq,
+    const std::shared_ptr<ListinoPrezzi>& listino,
+    GradoDifficolta grado
+) const {
+
     VoceCartongessoBuilder builder;
 
-    builder.setNomeCiclo(nomeCiclo)
-           .setMq(mq)
-           .setListino(listino)
-           .setGrado(grado);
-
-    return builder.build();
+    // Ora 'listino' è uno shared_ptr, quindi setListino(listino) funziona perfettamente!
+    return builder.setNomeCiclo(nomeCiclo)
+                  .setMq(mq)
+                  .setListino(listino)
+                  .setGrado(grado)
+                  .build();
 }

@@ -5,6 +5,15 @@
 #include <string>
 
 #include "GradoDifficolta.h"
+/*
+ NOTE DI DESIGN: PATTERN BUILDER
+ Il Builder è stato implementato specificamente per la classe VoceCartongesso
+ in previsione di una maggiore complessità di configurazione
+ (es. parametri futuri come isolamento termico, certificazione REI, tipologia lastra).
+
+ Per la classe VoceTinteggiatura, data la sua semplicità strutturale (pochi parametri),
+ abbiamo optato per un costruttore standard per evitare over-engineering.
+ */
 
 // Forward declaration per evitare include pesanti qui
 class ListinoPrezzi;

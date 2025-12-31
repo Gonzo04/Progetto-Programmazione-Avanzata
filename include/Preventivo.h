@@ -42,6 +42,8 @@ public:
     //Calcolo del totale (con std::accumulate + lambda)
     double totale() const;
 
+    double totaleMq() const;
+
     template <typename F>
     double aggrega (F funzione, double valoreIniziale) const {
         double acc = valoreIniziale;
