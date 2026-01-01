@@ -300,32 +300,51 @@ int main() {
     std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
     std::cout << preventivo.riepilogo() << std::endl;
 
-    std::cout << "\nSalvataggio in corso...\n";
+    std::string baseName = preventivo.getId();
+    if (baseName.empty()) baseName = "preventivo";
+
+    std::cout << "\nSalvataggio in corso";
 
     // [REQUISITO LIST]
     // Uso una lista di thread per gestire i task in background.
     // Dimostra che sai usare std::list con oggetti non copiabili (thread).
+    std::atomic<bool> SalvataggioInCorso(true);
+
     std::list<std::thread> threadPool;
 
-    threadPool.emplace_back([&preventivo]() {
-        // Simulazione lavoro pesante
+    threadPool.emplace_back([&preventivo,&SalvataggioInCorso]() {
+
+
         std::this_thread::sleep_for(std::chrono::seconds(2));
 
         std::string baseName = preventivo.getId();
+
         if (baseName.empty()) baseName = "preventivo";
 
         salvaPreventivoSuTxt(preventivo, baseName + ".txt");
         salvaPreventivoSuCsv(preventivo, baseName + ".csv");
 
+        SalvataggioInCorso = false;
+
         std::lock_guard<std::mutex> lock(gConsoleMutex);
-        std::cout << "\nSalvataggio in csv e txt completato! File: " << baseName << "\n";
+
     });
+    while (SalvataggioInCorso) {
+        {
+            std::lock_guard<std::mutex> lock(gConsoleMutex);
+            std::cout << "." << std::flush;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    std::cout << "\nSalvataggio in csv e txt completato! File: " << baseName << "\n";
+
 
     // Attesa fine thread (Join)
     for (std::thread& t : threadPool) {
         if (t.joinable()) t.join();
     }
-
+    std::cout << "Premi INVIO per uscire";
     std::string dummy;
     std::getline(std::cin, dummy);
 
