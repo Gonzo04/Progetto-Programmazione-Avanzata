@@ -5,8 +5,10 @@ ListinoPrezzi::ListinoPrezzi() = default;
 // Costruttore vuoto
 
 void ListinoPrezzi::impostaPrezzoMq(const std::string &nomeCiclo, double prezzo) {
-    /* [STL MAP] L'operatore [] inserisce la chiave se non esiste,
-     oppure aggiorna il valore se esiste già */
+/*
+L'operatore [] inserisce la chiave se non esiste,
+oppure aggiorna il valore se esiste già
+*/
     prezziMq_[nomeCiclo] = prezzo;
 }
 
@@ -31,3 +33,14 @@ double ListinoPrezzi::getCoeff(GradoDifficolta grado) const {
     }
     return it->second;
 }
+
+/*
+ListinoPrezzi centralizza i dati economici del preventivo:
+prezzo €/mq dei cicli e coefficienti legati alla difficoltà del cantiere.
+Usa std::map per associare chiavi a valori (nome ciclo → prezzo, grado → coefficiente),
+garantendo lookup efficiente e chiavi univoche.
+I metodi imposta* aggiornano/inseriscono valori tramite operator[]
+I metodi get* effettuano lookup con find
+e, se la chiave non è presente, segnalano l’errore tramite eccezioni,
+evitando la creazione involontaria di valori di default.
+*/

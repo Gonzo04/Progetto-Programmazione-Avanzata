@@ -13,7 +13,7 @@ class VoceTinteggiatura : public VoceCosto {
 // nomeCiclo: chiave del ciclo nel listino, mq: quantità, grado: coefficiente difficoltà
 
 public:
-    VoceTinteggiatura(const std::string& nomeCiclo,
+    VoceTinteggiatura(std::string nomeCiclo,
                       double mq,
                       const ListinoPrezzi& listino,
                       GradoDifficolta grado);

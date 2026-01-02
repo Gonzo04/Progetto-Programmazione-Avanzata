@@ -21,7 +21,7 @@
 #include "RegolaTinteggiatura.h"
 #include "RegolaCartongesso.h"
 #include "CalcolatorePreventivo.h"
-#include "utils.h"
+#include "Utils.h"
 
 static constexpr double MQ_MAX_REALISTICI = 1000000.0;
 
@@ -89,8 +89,8 @@ bool isCartongessoIndex(std::size_t index) {
 }
 
 void popolaListino(ListinoPrezzi& listino) {
-    for (std::size_t i = 0; i < NUM_CICLI; ++i) {
-        listino.impostaPrezzoMq(CICLI_TINTEGGIATURA[i].nome, CICLI_TINTEGGIATURA[i].prezzoMq);
+    for (const auto & i : CICLI_TINTEGGIATURA) {
+        listino.impostaPrezzoMq(i.nome, i.prezzoMq);
     }
     listino.impostaCoeff(GradoDifficolta::Nuovo,      1.00);
     listino.impostaCoeff(GradoDifficolta::Disabitato, 1.05);
@@ -199,7 +199,7 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     std::set<std::string> nomiCicliUsati;
     for (const auto& vocePtr : voci) {
         if (!vocePtr) continue;
-        const VoceCartongesso* vc = dynamic_cast<const VoceCartongesso*>(vocePtr.get());
+        const auto* vc = dynamic_cast<const VoceCartongesso*>(vocePtr.get());
         std::string tipo = (vc ? "Cartongesso" : "Tinteggiatura");
         nomiCicliUsati.insert(vocePtr->getNome());
         out << tipo << ";" << vocePtr->getNome() << ";" << vocePtr->getUnitaMisura() << ";"
@@ -260,8 +260,8 @@ int main() {
     RegolaCartongesso  regolaCartongesso;
     CalcolatorePreventivo calcolatore;
 
-    CategoriaLavoro catCorr;
-    SottoCategoriaLavoro sottoCatCorr;
+    CategoriaLavoro catCorr = {};
+    SottoCategoriaLavoro sottoCatCorr = {};
     bool haCat = false;
     bool continua = true;
 

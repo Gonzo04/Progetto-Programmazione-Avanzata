@@ -18,5 +18,7 @@ add_executable(Progetto_CLion
         src/CalcolatorePreventivo.cpp
         src/VoceCartongessoBuilder.cpp
         src/Utils.cpp
+        src/GestioneInputUI.cpp
+        include/GestioneInputUI.h
 
 )

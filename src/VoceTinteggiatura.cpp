@@ -4,7 +4,7 @@
 // Costruttore: inizializzo qui tutti i membri protetti ereditati da VoceCosto e poi la parte di VoceCosto:
 // ovvero nome, unità di misura, mq e prezzo €/mq
 
-VoceTinteggiatura::VoceTinteggiatura(const std::string& nomeCiclo,double mq,
+VoceTinteggiatura::VoceTinteggiatura(std::string nomeCiclo,double mq,
     const ListinoPrezzi& listino,GradoDifficolta grado)
 
 : VoceCosto(nomeCiclo, "m^2", mq, listino.getPrezzoMq(nomeCiclo))
