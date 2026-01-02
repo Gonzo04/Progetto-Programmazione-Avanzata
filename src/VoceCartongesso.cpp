@@ -1,4 +1,5 @@
 #include "VoceCartongesso.h"
+
 #include <utility> // std::move
 
 VoceCartongesso::VoceCartongesso(std::string nomeCiclo,
@@ -6,13 +7,14 @@ VoceCartongesso::VoceCartongesso(std::string nomeCiclo,
                                  const ListinoPrezzi& listino,
                                  GradoDifficolta grado)
     : VoceCosto(
-          std::move(nomeCiclo),                 // move: evito copia della stringa
+          nomeCiclo,
           "m^2",
           mq,
-          listino.getPrezzoMq(getNome())        // uso il nome salvato nella base
+          listino.getPrezzoMq(nomeCiclo)
       )
 {
     coefficiente_ = listino.getCoeff(grado);
+    nome_ = std::move(nomeCiclo);
 }
 
 double VoceCartongesso::subtotale() const {

@@ -1,4 +1,5 @@
 #include "VoceTinteggiatura.h"
+
 #include <utility> // std::move
 
 VoceTinteggiatura::VoceTinteggiatura(std::string nomeCiclo,
@@ -6,15 +7,17 @@ VoceTinteggiatura::VoceTinteggiatura(std::string nomeCiclo,
                                      const ListinoPrezzi& listino,
                                      GradoDifficolta grado)
     : VoceCosto(
-          std::move(nomeCiclo), // move: evito una copia della stringa nel costruttore base
+          nomeCiclo,                         // per calcolare prezzo in modo sicuro
           "m^2",
           mq,
-          // prezzo calcolato PRIMA del move usando la stringa originale
-          listino.getPrezzoMq(getNome())
+          listino.getPrezzoMq(nomeCiclo)     // usa il parametro, NON getNome()
       )
 {
-    // coefficiente legato alla difficoltà del cantiere
+    // ora che la base è costruita posso impostare il coefficiente
     coefficiente_ = listino.getCoeff(grado);
+
+    // e adesso posso anche “spostare” il nome nella base senza problemi
+    nome_ = std::move(nomeCiclo);
 }
 
 double VoceTinteggiatura::subtotale() const {
@@ -24,8 +27,3 @@ double VoceTinteggiatura::subtotale() const {
 std::unique_ptr<VoceCosto> VoceTinteggiatura::clone() const {
     return std::unique_ptr<VoceCosto>(new VoceTinteggiatura(*this));
 }
-
-
-
-
-

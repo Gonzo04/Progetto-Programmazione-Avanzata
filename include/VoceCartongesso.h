@@ -12,10 +12,8 @@
 // Prezzo €/mq dal listino + coefficiente in base alla difficoltà.
 class VoceCartongesso : public VoceCosto {
 public:
-    VoceCartongesso(std::string nomeCiclo,
-                    double mq,
-                    const ListinoPrezzi& listino,
-                    GradoDifficolta grado);
+    VoceCartongesso(std::string nomeCiclo, double mq, const ListinoPrezzi& listino, GradoDifficolta grado);
+
 
     double subtotale() const override;
 
