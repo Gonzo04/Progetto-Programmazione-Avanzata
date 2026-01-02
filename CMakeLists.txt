@@ -19,6 +19,10 @@ add_executable(Progetto_CLion
         src/VoceCartongessoBuilder.cpp
         src/Utils.cpp
         src/GestioneInputUI.cpp
-        include/GestioneInputUI.h
+        src/CatalogoCicli.cpp
+        src/ListinoDefault.cpp
+        src/IdPreventivoGenerator.cpp
+        src/SalvataggioPreventivo.cpp
+
 
 )

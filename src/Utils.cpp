@@ -4,7 +4,9 @@
 #include <iostream>
 #include <limits>
 #include <stdexcept>
-#include <cctype> // per std::isspace
+#include <cctype>
+#include <algorithm>
+
 
 void pulisciInput() {
     std::cin.clear();
@@ -75,10 +77,28 @@ bool chiediConferma(const std::string& domanda) {
         std::string pulita = trim(linea);
         if (pulita.empty()) continue;
 
-        char c = std::toupper(pulita[0]);
+        char c = static_cast<char>(std::toupper(static_cast<unsigned char>(pulita[0])));
         if (c == 'S') return true;
         if (c == 'N') return false;
 
         std::cout << "Risposta non valida. Inserisci S o N.\n";
     }
 }
+
+//controllo sul nome e cognome
+bool nomeClienteValido(const std::string& s) {
+
+
+        if (s.empty()) return false;
+
+        bool haAlmenoUnaLettera = false;
+
+        const bool ok = std::all_of(s.begin(), s.end(), [&](unsigned char ch) {
+            if (std::isalpha(ch)) { haAlmenoUnaLettera = true; return true; }
+            if (ch == ' ' || ch == '\'' || ch == '-') return true;
+            return false; // blocca numeri e altri simboli
+        });
+
+        return ok && haAlmenoUnaLettera;
+    }
+

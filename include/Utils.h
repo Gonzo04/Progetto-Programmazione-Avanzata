@@ -20,4 +20,7 @@ double leggiDouble(const std::string& messaggio);
 // Chiede conferma (S/N) all'utente
 bool chiediConferma(const std::string& domanda);
 
+//controllo sul nome e cognome
+bool nomeClienteValido(const std::string& s);
+
 #endif
