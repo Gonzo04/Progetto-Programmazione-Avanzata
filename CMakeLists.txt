@@ -23,6 +23,7 @@ add_executable(Progetto_CLion
         src/ListinoDefault.cpp
         src/IdPreventivoGenerator.cpp
         src/SalvataggioPreventivo.cpp
+        include/VoceCartongesso.h
 
 
 )
