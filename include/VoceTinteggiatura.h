@@ -6,28 +6,27 @@
 #include "ListinoPrezzi.h"
 #include "GradoDifficolta.h"
 
-// VoceCosto per tinteggiatura:
-// prende dal listino il prezzo €/mq e il coefficiente in base al grado di difficoltà
+// Voce concreta per lavori di tinteggiatura.
+// Recupera prezzo €/mq dal listino e applica un coefficiente in base alla difficoltà.
 class VoceTinteggiatura : public VoceCosto {
-
-// nomeCiclo: chiave del ciclo nel listino, mq: quantità, grado: coefficiente difficoltà
-
 public:
+    // nomeCiclo: chiave del ciclo nel listino
+    // mq: metri quadri
+    // listino: fornisce prezzo e coefficiente
+    // grado: determina il coefficiente di difficoltà
     VoceTinteggiatura(std::string nomeCiclo,
                       double mq,
                       const ListinoPrezzi& listino,
                       GradoDifficolta grado);
 
-    double subtotale() const override; // Formula del subtotale = quantità * prezzoUnitario * coefficiente
-    std::unique_ptr<VoceCosto> clone() const override; // Implementazione del clone polimorfo (deep copy)
+    double subtotale() const override;
+    const char* tipoVoce() const override { return "Tinteggiatura"; }
+    std::unique_ptr<VoceCosto> clone() const override;
 };
 
 #endif
 
-/* VoceTinteggiatura.h definisce una voce concreta del preventivo per lavori di tinteggiatura.
- Deriva da VoceCosto per riusare i campi comuni (nome, unità, quantità, prezzo, coefficiente).
- Il costruttore inizializza la voce usando ListinoPrezzi
- subtotale() calcola il costo della voce.
- clone() permette la copia profonda polimorfa
- necessaria per copiare correttamente un Preventivo che contiene unique_ptr<VoceCosto>.
-*/
+/*
+ Questa classe rappresenta una voce di preventivo per tinteggiatura.
+ Inizializza prezzo e coefficiente dal listino e calcola il subtotale.
+ */

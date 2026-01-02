@@ -1,5 +1,5 @@
-#ifndef CALCOLATOREPREVENTIVO_H
-#define CALCOLATOREPREVENTIVO_H
+#ifndef __CALCOLATOREPREVENTIVO_H__
+#define __CALCOLATOREPREVENTIVO_H__
 
 #include <string>
 #include <memory>

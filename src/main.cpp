@@ -142,8 +142,10 @@ int main() {
     });
 
     // Task 2: CSV
+    // Task 2: CSV
     threadPool.emplace_back([&]() {
         try {
+            std::this_thread::sleep_for(std::chrono::seconds(2)); // simulazione "operazione lunga"
             salvaPreventivoSuCsv(preventivo, baseName + ".csv");
         } catch (const std::exception& e) {
             salvataggioOk = false;
@@ -154,7 +156,7 @@ int main() {
     });
 
     // Puntini finché non finiscono entrambi i task
-    while (taskFiniti < NUM_TASK) {
+    while (taskFiniti.load() < NUM_TASK) {
         {
             std::lock_guard<std::mutex> lock(gConsoleMutex);
             std::cout << "." << std::flush;

@@ -1,19 +1,27 @@
-#ifndef VOCECARTONGESSO_H //Voce per il calcolo dei costi dei vari tipi di cartongessi
+#ifndef VOCECARTONGESSO_H
 #define VOCECARTONGESSO_H
 
 #include <string>
 #include <memory>
 
-#include "ListinoPrezzi.h" //Per il parametro del costruttore
-#include "VoceCosto.h" //classe da cui eredito
-#include "GradoDifficolta.h"//per il tipo dell'argomento grado
+#include "VoceCosto.h"
+#include "ListinoPrezzi.h"
+#include "GradoDifficolta.h"
 
+// Voce concreta per lavori di cartongesso.
+// Prezzo €/mq dal listino + coefficiente in base alla difficoltà.
 class VoceCartongesso : public VoceCosto {
-// :public VoceCosto perchè eredita da VoceCosto
 public:
-    VoceCartongesso(const std::string& NomeCiclo,double mq, const ListinoPrezzi& listino,GradoDifficolta grado);
+    VoceCartongesso(std::string nomeCiclo,
+                    double mq,
+                    const ListinoPrezzi& listino,
+                    GradoDifficolta grado);
 
-    virtual double subtotale() const override;
-    virtual std::unique_ptr<VoceCosto> clone() const override;
+    double subtotale() const override;
+
+    const char* tipoVoce() const override { return "Cartongesso"; }
+
+    std::unique_ptr<VoceCosto> clone() const override;
 };
+
 #endif

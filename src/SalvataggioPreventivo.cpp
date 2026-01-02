@@ -1,14 +1,12 @@
 #include "SalvataggioPreventivo.h"
 #include "Preventivo.h"
-#include "VoceCartongesso.h"
 
 #include <fstream>
 #include <iomanip>
 #include <stdexcept>
 
-
 void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
-    std::ofstream out(filename.c_str());
+    std::ofstream out(filename);
     if (!out) {
         throw std::runtime_error("Impossibile aprire file TXT: " + filename);
     }
@@ -16,7 +14,7 @@ void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
 }
 
 void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
-    std::ofstream out(filename.c_str());
+    std::ofstream out(filename);
     if (!out) {
         throw std::runtime_error("Impossibile aprire file CSV: " + filename);
     }
@@ -29,12 +27,9 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
         if (!vocePtr) continue;
 
         // Commento da studente:
-        // Qui uso dynamic_cast per capire se la voce concreta è Cartongesso o Tinteggiatura.
-        // Alternativa più OO: metodo virtuale tipo getTipoVoce(), ma per ora manteniamo questo semplice.
-        const auto* vc = dynamic_cast<const VoceCartongesso*>(vocePtr.get());
-        const std::string tipo = (vc ? "Cartongesso" : "Tinteggiatura");
-
-        out << tipo << ";"
+        // Evito dynamic_cast (RTTI) sfruttando il polimorfismo:
+        // ogni voce concreta sa dire “che tipo è” tramite tipoVoce().
+        out << vocePtr->tipoVoce() << ";"
             << vocePtr->getNome() << ";"
             << vocePtr->getUnitaMisura() << ";"
             << vocePtr->getQuantita() << ";"
@@ -43,8 +38,10 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
             << vocePtr->subtotale() << "\n";
     }
 
-    double imp = p.totale();
-    out << "TotaleImponibile;;;;;" << imp << "\n";
-    out << "IVA(22%);;;;;" << imp * 0.22 << "\n";
-    out << "TotaleComplessivo;;;;;" << imp * 1.22 << "\n";
+    constexpr double IVA = 0.22;
+    const double imponibile = p.totale();
+
+    out << "TotaleImponibile;;;;;" << imponibile << "\n";
+    out << "IVA(22%);;;;;" << imponibile * IVA << "\n";
+    out << "TotaleComplessivo;;;;;" << imponibile * (1.0 + IVA) << "\n";
 }

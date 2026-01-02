@@ -1,7 +1,17 @@
 #include "VoceCartongesso.h"
+#include <utility> // std::move
 
-VoceCartongesso::VoceCartongesso(const std::string &nomeCiclo, double mq, const ListinoPrezzi &listino, GradoDifficolta grado)
-: VoceCosto(nomeCiclo, "m^2", mq, listino.getPrezzoMq(nomeCiclo)) {
+VoceCartongesso::VoceCartongesso(std::string nomeCiclo,
+                                 double mq,
+                                 const ListinoPrezzi& listino,
+                                 GradoDifficolta grado)
+    : VoceCosto(
+          std::move(nomeCiclo),                 // move: evito copia della stringa
+          "m^2",
+          mq,
+          listino.getPrezzoMq(getNome())        // uso il nome salvato nella base
+      )
+{
     coefficiente_ = listino.getCoeff(grado);
 }
 
