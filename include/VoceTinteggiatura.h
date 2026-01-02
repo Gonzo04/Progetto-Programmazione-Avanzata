@@ -24,9 +24,10 @@ public:
 
 #endif
 
-// VoceTinteggiatura.h definisce una voce concreta del preventivo per lavori di tinteggiatura.
-// Deriva da VoceCosto per riusare i campi comuni (nome, unità, quantità, prezzo, coefficiente).
-// Il costruttore inizializza la voce usando ListinoPrezzi
-// subtotale() calcola il costo della voce.
-// clone() permette la copia profonda polimorfa
-// necessaria per copiare correttamente un Preventivo che contiene unique_ptr<VoceCosto>.
+/* VoceTinteggiatura.h definisce una voce concreta del preventivo per lavori di tinteggiatura.
+ Deriva da VoceCosto per riusare i campi comuni (nome, unità, quantità, prezzo, coefficiente).
+ Il costruttore inizializza la voce usando ListinoPrezzi
+ subtotale() calcola il costo della voce.
+ clone() permette la copia profonda polimorfa
+ necessaria per copiare correttamente un Preventivo che contiene unique_ptr<VoceCosto>.
+*/

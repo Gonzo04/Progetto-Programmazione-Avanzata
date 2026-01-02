@@ -3,8 +3,9 @@
 
 #include <string>             //std::string
 #include <memory>             //std::unique_ptr
+#include <utility>
 //VoceCosto generica del preventivo (classe base astratta)
-// Le classi derivate (es. tinteggiatura, cartongesso) implementano il calcolo del costo.
+// Le classi derivate (es. Tinteggiatura, Cartongesso) implementano il calcolo del costo.
 class VoceCosto {
 public:
 
@@ -40,12 +41,12 @@ public:
 protected:
     // protected: VoceCosto non si istanzia direttamente, ma solo tramite classi derivate
 
-    VoceCosto(const std::string& nome,
-              const std::string& unita,
+    VoceCosto(std::string  nome,
+              std::string  unita,
               double quantita,
               double prezzo)
-        : nome_(nome),
-          unitaMisura_(unita),
+        : nome_(std::move(nome)),
+          unitaMisura_(std::move(unita)),
           quantita_(quantita),
           prezzoUnitario_(prezzo),
           coefficiente_(1.0) {}
@@ -54,18 +55,19 @@ protected:
     std::string unitaMisura_;   // es. "m^2"
     double quantita_       = 0.0;
     double prezzoUnitario_ = 0.0;  // €/unità
-    double coefficiente_   = 1.0;  // coeff. legato alla difficoltà
+    double coefficiente_   = 1.0;  // Coeff. Legato alla difficoltà
 
 
 };
 
 #endif
 
-// Questo file definisce la classe astratta VoceCosto,
-// che rappresenta una singola voce di costo dentro un preventivo.
-// La classe viene usata in modo polimorfo: il preventivo conserva le voci come std::unique_ptr<VoceCosto>
-// così posso mettere nello stesso contenitore voci di tipi diversi (es. tinteggiatura e cartongesso).
-// Ogni classe derivata deve implementare subtotale() per calcolare il costo della voce e clone()
-// per permettere la copia profonda polimorfa
-// (necessaria quando si copia un Preventivo, dato che unique_ptr non è copiabile e non posso copiare oggetti senza conoscere il tipo concreto).
-// Il costruttore è protected perché VoceCosto non deve essere istanziata direttamente ma solo tramite classi derivate.
+/* Questo file definisce la classe astratta VoceCosto,
+ che rappresenta una singola voce di costo dentro un preventivo.
+ La classe viene usata in modo polimorfo: il preventivo conserva le voci come std::unique_ptr<VoceCosto>
+ così posso mettere nello stesso contenitore voci di tipi diversi (es. Tinteggiatura e Cartongesso).
+ Ogni classe derivata deve implementare subtotale() per calcolare il costo della voce e clone()
+ per permettere la copia profonda polimorfa
+ (necessaria quando si copia un Preventivo, dato che unique_ptr non è copiabile e non posso copiare oggetti senza conoscere il tipo concreto).
+ Il costruttore è protected perché VoceCosto non deve essere instanziata direttamente ma solo tramite classi derivate
+*/

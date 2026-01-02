@@ -1,12 +1,12 @@
 #include "ListinoPrezzi.h"
 #include <stdexcept>
 
-ListinoPrezzi::ListinoPrezzi() {
-}
+ListinoPrezzi::ListinoPrezzi() = default;
+// Costruttore vuoto
 
 void ListinoPrezzi::impostaPrezzoMq(const std::string &nomeCiclo, double prezzo) {
-    //Inserisco o aggiorno il prezzo per questo ciclo
-    //Se la chiave esiste già, l'operatore [] la sovrascrive
+    /* [STL MAP] L'operatore [] inserisce la chiave se non esiste,
+     oppure aggiorna il valore se esiste già */
     prezziMq_[nomeCiclo] = prezzo;
 }
 
@@ -16,7 +16,7 @@ void ListinoPrezzi::impostaCoeff(GradoDifficolta grado, double coeff) {
 }
 
 double ListinoPrezzi::getPrezzoMq(const std::string &nomeCiclo) const {
-    //Cerco il ciclo nella mappa usando find
+
     std::map<std::string, double>::const_iterator it = prezziMq_.find(nomeCiclo);
     if (it == prezziMq_.end()) {
         throw std::runtime_error("Ciclo non presente nel listino: " + nomeCiclo); // nel caso non ci fosse
