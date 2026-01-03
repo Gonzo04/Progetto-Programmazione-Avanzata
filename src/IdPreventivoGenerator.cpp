@@ -26,7 +26,7 @@ std::string generaIdPreventivo() {
     // Trasformo la data in stringa YYYYMMDD usando la copia
     char data[16];
     std::strftime(data, sizeof(data), "%Y%m%d", &tmCopy);
-    
+
     int progressivo = g_contatorePreventivi.fetch_add(1);
 
     // Compongo l'ID finale: PYYYYMMDD-XXX (XXX a 3 cifre con zeri davanti)
