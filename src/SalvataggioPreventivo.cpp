@@ -13,10 +13,9 @@
 #include <chrono>
 #include <iostream>
 
-static std::mutex gConsoleMutex;
 
 void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
-    // ofstream apre/crea il file. Se non riesce (permessi/percorso), out risulta "false".
+    // ofstream apre/crea il file. Se non riesce , out risulta "false".
     std::ofstream out(filename);
     if (!out) {
         throw std::runtime_error("Impossibile aprire file TXT: " + filename);

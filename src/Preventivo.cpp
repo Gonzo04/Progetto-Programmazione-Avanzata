@@ -7,6 +7,7 @@
 #include <iomanip>    // std::fixed, std::setprecision
 #include <numeric>
 #include <set>
+#include <mutex>
 
 
 static const char* descriviGrado(GradoDifficolta g) {
@@ -190,10 +191,18 @@ std::string Preventivo::riepilogo() const {
     oss << "============================================================\n";
 
     // Data di stampa
+    static std::mutex g_timeMutex;
+
     std::time_t now = std::time(nullptr);
-    std::tm* ptm = std::localtime(&now);
+
+    std::tm tmCopy{};
+    {
+        std::lock_guard<std::mutex> lock(g_timeMutex);
+        std::tm* ptm = std::localtime(&now);
+        if (ptm) tmCopy = *ptm;
+    }
     char dataBuf[16];
-    std::strftime(dataBuf, sizeof(dataBuf), "%d/%m/%Y", ptm);
+    std::strftime(dataBuf, sizeof(dataBuf), "%d/%m/%Y", &tmCopy);
 
     oss << "Data: " << dataBuf << "\n";
     oss << "Preventivo " << id_ << " - Cliente: " << cliente_ << "\n";
