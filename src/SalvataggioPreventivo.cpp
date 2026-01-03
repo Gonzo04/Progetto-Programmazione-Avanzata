@@ -13,7 +13,10 @@
 #include <chrono>
 #include <iostream>
 
+static std::mutex gConsoleMutex;
+
 void salvaPreventivoSuTxt(const Preventivo& p, const std::string& filename) {
+    // ofstream apre/crea il file. Se non riesce (permessi/percorso), out risulta "false".
     std::ofstream out(filename);
     if (!out) {
         throw std::runtime_error("Impossibile aprire file TXT: " + filename);
@@ -28,8 +31,10 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     }
 
     out << std::fixed << std::setprecision(2);
+
     out << "TipoVoce;Nome;Unita;Quantita;PrezzoUnitario;Coefficiente;Subtotale\n";
 
+    // Il Preventivo espone le voci come vector<unique_ptr<VoceCosto>>
     const auto& voci = p.getVoci();
     for (const auto& vocePtr : voci) {
         if (!vocePtr) continue;
@@ -48,7 +53,6 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     constexpr double IVA = 0.22;
     const double imponibile = p.totale();
 
-    // Mantengo il tuo formato (non perfettamente “7 campi”), ma coerente con il tuo CSV attuale
     out << "TotaleImponibile;;;;;" << imponibile << "\n";
     out << "IVA(22%);;;;;" << imponibile * IVA << "\n";
     out << "TotaleComplessivo;;;;;" << imponibile * (1.0 + IVA) << "\n";
@@ -57,17 +61,28 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
 bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName) {
     std::cout << "\nSalvataggio in corso";
 
+    // Mutex locale: protegge l'output su console dai thread.
     std::mutex consoleMutex;
+
+    // Contenitore di thread
     std::list<std::thread> threadPool;
 
+    // taskFiniti: contatore atomico aggiornato dai thread
     std::atomic<int> taskFiniti(0);
+
+    //se un task fallisce, diventa false.
     std::atomic<bool> salvataggioOk(true);
     constexpr int NUM_TASK = 2;
+
+    /*
+     Dato che le operazioni che deve fare non impiegano molto tempo ho inserito un ritardo
+     come simulazione di caricamento
+     */
 
     // Task 1: TXT
     threadPool.emplace_back([&]() {
         try {
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // simulazione "operazione lunga"
+            std::this_thread::sleep_for(std::chrono::seconds(2));
             salvaPreventivoSuTxt(p, baseName + ".txt");
         } catch (const std::exception& e) {
             salvataggioOk = false;
@@ -80,7 +95,7 @@ bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName
     // Task 2: CSV
     threadPool.emplace_back([&]() {
         try {
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // simulazione "operazione lunga"
+            std::this_thread::sleep_for(std::chrono::seconds(2));
             salvaPreventivoSuCsv(p, baseName + ".csv");
         } catch (const std::exception& e) {
             salvataggioOk = false;
@@ -90,7 +105,7 @@ bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName
         ++taskFiniti;
     });
 
-    // Puntini finché non finiscono entrambi i task
+    // Caricamento finché non finiscono entrambi i task
     while (taskFiniti.load() < NUM_TASK) {
         {
             std::lock_guard<std::mutex> lock(consoleMutex);

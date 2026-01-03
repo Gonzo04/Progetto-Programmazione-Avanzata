@@ -15,6 +15,12 @@
 #include "SalvataggioPreventivo.h"
 
 static constexpr double MQ_MAX_REALISTICI = 1000000.0;
+/*
+    ContestoApp:
+    - listino condiviso (stessa istanza usata durante l’inserimento di più voci)
+    - calcolatore + regole (strategy): scelgo la regola in base alla categoria (tinteggiatura/cartongesso)
+    - grado difficoltà scelto dall’utente
+*/
 
 struct ContestoApp {
     std::shared_ptr<ListinoPrezzi> listino;
@@ -23,6 +29,8 @@ struct ContestoApp {
     CalcolatorePreventivo calcolatore;
     GradoDifficolta grado;
 };
+
+//Legge e valida il nome cliente
 
 static std::string chiediNomeCliente() {
     std::string cliente;
@@ -49,9 +57,17 @@ static std::string chiediNomeCliente() {
     return cliente;
 }
 
+/*
+    Inizializza listino + id + dati cliente.
+    - crea il listino e carica i valori default
+    - genera ID preventivo
+    - chiede nome cliente e difficoltà
+*/
+
 static Preventivo inizializzaPreventivo(ContestoApp& ctx) {
     ctx.listino = std::make_shared<ListinoPrezzi>();
 
+    // carica prezzi base e coefficienti standard e lancia eccezioni in caso di problemi
     caricaListinoDefault(*ctx.listino);
     std::cout << "Listino caricato correttamente.\n\n";
 
@@ -67,6 +83,13 @@ static Preventivo inizializzaPreventivo(ContestoApp& ctx) {
     return {id, cliente, ctx.grado};
 }
 
+/*
+    Gestisce il ciclo di inserimento voci:
+    - scelta categoria/sottocategoria
+    - selezione del ciclo dal catalogo
+    - lettura mq
+    - scelta regola (tinteggiatura o cartongesso) e creazione voce tramite calcolatore
+*/
 static void inserisciVoci(Preventivo& preventivo, ContestoApp& ctx) {
     CategoriaLavoro catCorr = {};
     SottoCategoriaLavoro sottoCatCorr = {};
@@ -81,7 +104,7 @@ static void inserisciVoci(Preventivo& preventivo, ContestoApp& ctx) {
         }
 
         int idx = GestioneInputUI::menuCicliPerCategoria(catCorr, sottoCatCorr);
-
+        // Serve per il 0) Torna indietro in modo che ritorni alla scelta della lavorazione e non all'inizio
         if (idx < 0) {
             haCat = false;
             continue;
@@ -98,9 +121,12 @@ static void inserisciVoci(Preventivo& preventivo, ContestoApp& ctx) {
         }
 
         try {
+
+            // Strategy: seleziono la regola corretta in base al tipo di ciclo
             if (isCartongesso) ctx.calcolatore.setRegola(&ctx.regolaCartongesso);
             else ctx.calcolatore.setRegola(&ctx.regolaTinteggiatura);
 
+            // Il calcolatore delega alla regola la creazione della VoceCosto concreta
             ctx.calcolatore.aggiungiLavoro(preventivo, nomeCiclo, mq, ctx.listino, ctx.grado);
             std::cout << " -> Aggiunta voce: " << nomeCiclo << "\n";
         } catch (const std::exception& e) {
@@ -128,6 +154,7 @@ int main() {
         std::string baseName = preventivo.getId();
         if (baseName.empty()) baseName = "preventivo";
 
+        // Salvataggio su TXT+CSV in modo concorrente (thread gestiti in SalvataggioPreventivo)
         bool ok = salvaPreventivoConcorrente(preventivo, baseName);
 
         if (ok) {

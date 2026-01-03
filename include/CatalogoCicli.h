@@ -3,10 +3,19 @@
 
 #include <cstddef>
 #include <string>
+/*
+ CatalogoCili = elenco statico dei cicli/lavorazioni disponibili
 
-// Concetti del dominio (non UI): classificano i cicli
+ Idea:
+    -questi dati sono di "dominio" non di interfaccia: nome, prezzo base, categoria, sottocategoria
+    -li tengo in un array statico nel .cpp e utilizzo funzioni per accedervi in modo controllato
+
+*/
+
+// Categorie Principali
 enum class CategoriaLavoro { Interno, Esterno, Cartongesso };
 
+// SottoCategoria
 enum class SottoCategoriaLavoro {
     InternoCivile, InternoIndustriale,
     EsternoCivile, EsternoIndustriale,
@@ -14,7 +23,6 @@ enum class SottoCategoriaLavoro {
     Cart_Controsoffitti, Cart_FinituraMuratura
 };
 
-// Dato statico: un ciclo in catalogo (nome + prezzo base + classificazione)
 struct CicloInfo {
     const char* nome;
     double prezzoMq;
@@ -22,7 +30,7 @@ struct CicloInfo {
     SottoCategoriaLavoro sottocategoria;
 };
 
-// Accesso controllato al catalogo (l'array resta nascosto nel .cpp)
+// Accesso controllato al catalogo
 std::size_t getNumeroCicli();
 const CicloInfo& getCiclo(std::size_t index);
 

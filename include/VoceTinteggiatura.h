@@ -24,12 +24,8 @@ public:
     // Serve per stampe/CSV senza usare dynamic_cast
     const char* tipoVoce() const override { return "Tinteggiatura"; }
 
+    //Clone
     std::unique_ptr<VoceCosto> clone() const override;
 };
 
 #endif
-
-/*
- Questa classe rappresenta una voce di preventivo per tinteggiatura.
- Inizializza prezzo e coefficiente dal listino e calcola il subtotale.
- */

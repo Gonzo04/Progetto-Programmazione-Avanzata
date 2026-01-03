@@ -1,16 +1,21 @@
 #include "RegolaTinteggiatura.h"
 #include "VoceTinteggiatura.h"
 
-// [MODIFICA] Aggiornata la firma dell'implementazione
+#include <stdexcept>
+
 std::unique_ptr<VoceCosto> RegolaTinteggiatura::creaVoce(
     const std::string& nomeCiclo,
     double mq,
     const std::shared_ptr<ListinoPrezzi>& listino,
     GradoDifficolta grado
 ) const {
+    /*
+    Uso il listino in sola lettura per recuperare prezzo e coefficiente.
+    */
+    if (!listino) {
+        throw std::runtime_error("Listino non valido (nullptr) nella regola tinteggiatura.");
+    }
 
-    // VoceTinteggiatura vuole ancora il riferimento classico (ListinoPrezzi&).
-    // Quindi dereferenziamo lo shared_ptr con l'asterisco (*listino).
     return std::unique_ptr<VoceCosto>(
         new VoceTinteggiatura(nomeCiclo, mq, *listino, grado)
     );

@@ -8,6 +8,10 @@
 
 
 GradoDifficolta GestioneInputUI::chiediGradoDifficolta() {
+    /*
+    Controllo finchè l'utente non fa una scelta valida
+    LeggiIntero() gestisce anche input non numerici
+    */
     while (true) {
         std::cout << "Seleziona la tipologia del cantiere:\n 1) Nuovo\n 2) Disabitato\n 3) Abitato\n";
         int scelta = leggiIntero("Scelta: ");
@@ -58,26 +62,39 @@ SottoCategoriaLavoro GestioneInputUI::chiediSottoCategoriaLavoro(CategoriaLavoro
 
 int GestioneInputUI::menuCicliPerCategoria(CategoriaLavoro categoria, SottoCategoriaLavoro sottocategoria) {
     std::cout << "\n--- Seleziona un ciclo di lavorazione ---\n";
-
+    /*
+     Uso vector<int> che contiene gli indici Reali dei cicli mostrati
+     stampo 1..K, e poi la scelta utente diventa il vero indice di catalogo
+    */
     std::vector<int> indiciDisponibili;
+
+    //reserve: evito le riallocazioni mentre faccio push_back
     indiciDisponibili.reserve(getNumeroCicli());
 
     for (std::size_t i = 0; i < getNumeroCicli(); ++i) {
         const CicloInfo& ciclo = getCiclo(i);
+
+        // filtro per categoria e sottocategoria
         if (ciclo.categoria == categoria && ciclo.sottocategoria == sottocategoria) {
+
+            // salvo l'indice reale nel vector
             indiciDisponibili.push_back(static_cast<int>(i));
+
             int voceMenu = static_cast<int>(indiciDisponibili.size());
             std::cout << " " << voceMenu << ") " << ciclo.nome
                       << " (" << ciclo.prezzoMq << " euro/mq)\n";
         }
     }
 
+    // in caso di assenza di cicli (variabile non calcolabile in questo progetto)
     if (indiciDisponibili.empty()) {
         std::cout << "Nessun ciclo disponibile per questa categoria.\n";
         return -1;
     }
 
     std::cout << " 0) Torna indietro\n";
+
+    // input con controllo range
     while (true) {
         int scelta = leggiIntero("Scelta: ");
         if (scelta == 0) return -1;

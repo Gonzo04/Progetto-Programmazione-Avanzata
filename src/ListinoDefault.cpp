@@ -3,7 +3,7 @@
 #include "GradoDifficolta.h"
 
 void caricaListinoDefault(ListinoPrezzi& listino) {
-    // Prezzi €/mq presi dal catalogo statico
+    // Prezzi €/mq presi dal catalogo statico dei cicli
     for (std::size_t i = 0; i < getNumeroCicli(); ++i) {
         const CicloInfo& c = getCiclo(i);
         listino.impostaPrezzoMq(c.nome, c.prezzoMq);

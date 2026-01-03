@@ -1,6 +1,4 @@
-    #include "VoceCartongessoBuilder.h"
-
-
+#include "VoceCartongessoBuilder.h"
 #include "ListinoPrezzi.h"
 #include "VoceCartongesso.h"
 
@@ -22,6 +20,7 @@ VoceCartongessoBuilder& VoceCartongessoBuilder::setNomeCiclo(const std::string& 
 
 VoceCartongessoBuilder& VoceCartongessoBuilder::setMq(double mq)
 {
+    // Controllo
     if (mq <= 0.0) {
         throw std::runtime_error("Mq deve essere positivo");
     }
@@ -32,6 +31,7 @@ VoceCartongessoBuilder& VoceCartongessoBuilder::setMq(double mq)
 
 VoceCartongessoBuilder& VoceCartongessoBuilder::setListino(const std::shared_ptr<ListinoPrezzi>& listino)
 {
+    // Il builder salva il listino come shared_ptr per garantire che sia valido fino a build()
     listino_ = listino;
     return *this;
 }
@@ -56,6 +56,11 @@ std::unique_ptr<VoceCosto> VoceCartongessoBuilder::build() const
         throw std::runtime_error("Listino non impostato nel builder");
     }
 
+    /*
+       Creazione della voce concreta.
+       - dereferenzio lo shared_ptr (*listino_) perché VoceCartongesso prende il listino
+         per riferimento const (non-owning)
+   */
     return std::unique_ptr<VoceCosto>(
         new VoceCartongesso(nomeCiclo_, mq_, *listino_, grado_)
     );

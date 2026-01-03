@@ -62,10 +62,6 @@ public:
     // Copia polimorfa ("virtual constructor"): permette di copiare una voce concreta tramite puntatore a base.2
     virtual std::unique_ptr<VoceCosto> clone() const = 0;
 
-
-
-
-
 };
 
 #endif

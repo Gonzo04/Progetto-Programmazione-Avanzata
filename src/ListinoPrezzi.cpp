@@ -1,13 +1,16 @@
 #include "ListinoPrezzi.h"
 #include <stdexcept>
 
-ListinoPrezzi::ListinoPrezzi() = default;
 // Costruttore vuoto
+ListinoPrezzi::ListinoPrezzi() = default;
+
 
 void ListinoPrezzi::impostaPrezzoMq(const std::string &nomeCiclo, double prezzo) {
 /*
-L'operatore [] inserisce la chiave se non esiste,
-oppure aggiorna il valore se esiste già
+    Map:Operator[]:
+    -l'operatore [] inserisce la chiave se non esiste,
+    -se la chiave non esiste, la crea
+    -se esiste, aggiorna il valore
 */
     prezziMq_[nomeCiclo] = prezzo;
 }
@@ -18,7 +21,10 @@ void ListinoPrezzi::impostaCoeff(GradoDifficolta grado, double coeff) {
 }
 
 double ListinoPrezzi::getPrezzoMq(const std::string &nomeCiclo) const {
-
+    /*
+    In questo caso non utilizzo operator[] perchè se nomeCiclo non esiste, operator inserirebbe un prezzo 0.0
+    Uso find() come prima e se manca lancio eccezione
+    */
     std::map<std::string, double>::const_iterator it = prezziMq_.find(nomeCiclo);
     if (it == prezziMq_.end()) {
         throw std::runtime_error("Ciclo non presente nel listino: " + nomeCiclo); // nel caso non ci fosse
@@ -27,6 +33,7 @@ double ListinoPrezzi::getPrezzoMq(const std::string &nomeCiclo) const {
 }
 
 double ListinoPrezzi::getCoeff(GradoDifficolta grado) const {
+    // stessa logica
     std::map<GradoDifficolta, double>::const_iterator it = coeffDifficolta_.find(grado);
     if (it == coeffDifficolta_.end()) {
         throw std::runtime_error("Grado di difficolta' non presente nel listino");
@@ -34,13 +41,3 @@ double ListinoPrezzi::getCoeff(GradoDifficolta grado) const {
     return it->second;
 }
 
-/*
-ListinoPrezzi centralizza i dati economici del preventivo:
-prezzo €/mq dei cicli e coefficienti legati alla difficoltà del cantiere.
-Usa std::map per associare chiavi a valori (nome ciclo → prezzo, grado → coefficiente),
-garantendo lookup efficiente e chiavi univoche.
-I metodi imposta* aggiornano/inseriscono valori tramite operator[]
-I metodi get* effettuano lookup con find
-e, se la chiave non è presente, segnalano l’errore tramite eccezioni,
-evitando la creazione involontaria di valori di default.
-*/

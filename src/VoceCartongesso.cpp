@@ -25,8 +25,8 @@ VoceCartongesso::VoceCartongesso(std::string nomeCiclo,
 double VoceCartongesso::subtotale() const {
     return quantita_ * prezzoUnitario_ * coefficiente_;
 }
-// Copia polimorfa: creo un nuovo oggetto dello stesso tipo concreto
 
+// Copia polimorfa: creo un nuovo oggetto dello stesso tipo concreto
 std::unique_ptr<VoceCosto> VoceCartongesso::clone() const {
     return std::unique_ptr<VoceCosto>(new VoceCartongesso(*this));
 }

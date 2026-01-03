@@ -3,24 +3,32 @@
 
 #include <string>
 
+/*
+    Utils contiene funzioni di supporto generiche
 
+    - evitare duplicazione di codice nel main e nei menu
+    - centralizzare lettura dell'input (getline + parsing)
+    - funzioni di utilità (trim, conferma S/N, validazione nome)
+    - uso std::getline per leggere tutta la riga e poi converto (stoi/stod)
+      così si evitano i problemi classici di std::cin >>
+*/
 
-// Pulisce il buffer di input
+// Pulisce l'input
 void pulisciInput();
 
-// Rimuove spazi bianchi a inizio e fine stringa
+// Rimuove spazi e tab a inizio/fine stringa
 std::string trim(const std::string& s);
 
-// Legge un intero gestendo gli eventuali errori
+// Legge un intero da console (ripete finché valido)
 int leggiIntero(const std::string& messaggio);
 
-// Legge un double gestendo gli eventuali errori
+// Legge un double da console (ripete finché valido)
 double leggiDouble(const std::string& messaggio);
 
-// Chiede conferma (S/N) all'utente
+// Chiede una conferma (S/N) e ritorna true/false
 bool chiediConferma(const std::string& domanda);
 
-//controllo sul nome e cognome
+// Controllo sul nome cliente: solo lettere/spazi/'/-
 bool nomeClienteValido(const std::string& s);
 
-#endif
+#endif // UTILS_H

@@ -1,6 +1,11 @@
 #include "CatalogoCicli.h"
 #include <stdexcept>
 
+/*
+    Array statico "privato" del modulo:
+    -static perchè visibile solo in questo file
+    -per aggiungere un ciclo nuovo basta aggiungerlo qui
+*/
 static const CicloInfo CICLI_LAVORAZIONI[] = {
     {"Idropittura traspirante", 5.00, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
     {"Idropittura lavabile acrilica", 6.50, CategoriaLavoro::Interno, SottoCategoriaLavoro::InternoCivile},
@@ -29,6 +34,7 @@ static const CicloInfo CICLI_LAVORAZIONI[] = {
     {"Rasatura gesso su muratura", 12.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_FinituraMuratura}
 };
 
+// Nunmero elementi calcolato a compile-time
 static constexpr  std::size_t NUM_CICLI = sizeof(CICLI_LAVORAZIONI) / sizeof(CicloInfo);
 
 std::size_t getNumeroCicli() {
@@ -36,11 +42,19 @@ std::size_t getNumeroCicli() {
 }
 
 const CicloInfo& getCiclo(std::size_t index) {
+    // Qui controllo l'indice
     if (index >= NUM_CICLI) throw std::out_of_range("Indice ciclo fuori range");
     return CICLI_LAVORAZIONI[index];
 }
 
 std::string getNomeCicloDaIndice(int index) {
+    /*
+     La UI lavora con int dato che le scelte sono int
+     Faccio il check e poi restituisco nome del ciclo
+
+    Confronto con static_cast<int>(NUM_CICLI) perchè NUM_CICLI è size_t (unsigned)
+    evitando confronti signed/unsigned
+    */
     if (index < 0 || index >= static_cast<int>(NUM_CICLI)) {
         throw std::out_of_range("Indice ciclo fuori range");
     }

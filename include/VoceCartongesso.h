@@ -7,9 +7,15 @@
 #include "VoceCosto.h"
 #include "ListinoPrezzi.h"
 #include "GradoDifficolta.h"
+/*
+    VoceCartongesso = implementazione di VoceCosto per lavorazioni di cartongesso.
 
-// Voce concreta per lavori di cartongesso.
-// Inizializza prezzo €/mq dal ListinoPrezzi e coefficiente in base al GradoDifficolta.
+    - inizializza i dati economici a partire dal listino (prezzo €/mq + coefficiente difficoltà)
+    - fornire la formula del costo tramite subtotale()
+    - supportare la copia polimorfa tramite clone()
+    - il listino viene passato per const reference
+*/
+
 class VoceCartongesso : public VoceCosto {
 public:
     // nomeCiclo: nome del ciclo/lavorazione presente nel listino

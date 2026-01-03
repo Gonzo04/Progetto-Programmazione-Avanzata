@@ -5,40 +5,46 @@
 #include <string>
 
 #include "GradoDifficolta.h"
+
 /*
- NOTE DI DESIGN: PATTERN BUILDER
- Il Builder è stato implementato specificamente per la classe VoceCartongesso
- in previsione di una maggiore complessità di configurazione
- (es. parametri futuri come isolamento termico, certificazione REI, tipologia lastra).
+    VoceCartongessoBuilder (Pattern Builder)
 
- Per la classe VoceTinteggiatura, data la sua semplicità strutturale (pochi parametri),
- abbiamo optato per un costruttore standard per evitare over-engineering.
- */
 
-// Forward declaration per evitare include pesanti qui
+    - raccoglie i parametri necessari per costruire una VoceCartongesso
+    - valida i parametri (es. mq > 0, listino presente, nome ciclo non vuoto)
+    - crea l'oggetto finale tramite build()
+
+    Perché Builder solo per cartongesso:
+    - cartongesso è previsto diventi più complesso (parametri futuri)
+    mentre tinteggiatura è più semplice
+
+    Output:
+    - build() ritorna std::unique_ptr<VoceCosto>
+    per inserirlo nel Preventivo senza gestione manuale della memoria.
+*/
 class ListinoPrezzi;
 class VoceCosto;
 
 class VoceCartongessoBuilder {
+
 private:
-    std::string nomeCiclo_;
-    double mq_;
-    std::shared_ptr<ListinoPrezzi> listino_;
-    GradoDifficolta grado_;
+    std::string nomeCiclo_;                 // nome del ciclo scelto dall'utente
+    double mq_;                             // metri quadri
+    std::shared_ptr<ListinoPrezzi> listino_; // risorsa condivisa: garantisce lifetime fino a build()
+    GradoDifficolta grado_;                 // difficoltà del cantiere (coefficiente)
 
 public:
-    // Costruttore: inizializza con valori "non validi"
+    // Inizializza un builder in stato "incompleto" che verra completato tramite i set
     VoceCartongessoBuilder();
 
-    // Metodi di configurazione (ritornano *this per permettere il chaining)
+    // Metodi di configurazione: impostano un parametro e ritornano *this per chaining
     VoceCartongessoBuilder& setNomeCiclo(const std::string& nome);
     VoceCartongessoBuilder& setMq(double mq);
     VoceCartongessoBuilder& setListino(const std::shared_ptr<ListinoPrezzi> & listino);
     VoceCartongessoBuilder& setGrado(GradoDifficolta grado);
 
-    // Costruisce l'oggetto finale (VoceCartongesso) e lo ritorna come VoceCosto
+    // Valida i parametri e costruisce la VoceCartongesso concreta
     std::unique_ptr<VoceCosto> build() const;
-
 
 };
 

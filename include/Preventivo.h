@@ -84,7 +84,7 @@ public:
     const std::string& getCliente() const { return cliente_; }
     GradoDifficolta getGrado() const      { return grado_; }
 
-    // Accesso in sola lettura alle voci (esempio: per CSV)
+    // Accesso in sola lettura alle voci
     const std::vector<std::unique_ptr<VoceCosto>>& getVoci() const {
         return voci_;
     }

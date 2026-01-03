@@ -25,9 +25,9 @@ static const char* descriviGrado(GradoDifficolta g) {
 
 //Costruttore: inizializzo i membri tramite std::move per evitare copie
 Preventivo::Preventivo(std::string id, std::string cliente, GradoDifficolta grado)
-    : id_(std::move(id)), //sposto la stringa temporanea nel membro
-      cliente_(std::move(cliente)), //idem per il nome cliente
-      grado_(grado) //copio anche il grado
+    : id_(std::move(id)),
+      cliente_(std::move(cliente)),
+      grado_(grado)
 {}
 
 //COPY CONSTRUCTOR: copia profonda polimorfa delle voci
@@ -101,7 +101,7 @@ void Preventivo::aggiungiVoce(std::unique_ptr<VoceCosto> voce) {
     const std::string key = std::string(voce->tipoVoce()) + "|" + voce->getNome();
 
     // Il set controlla che sia la prima volta a vedere questa voce
-    // insert() ritorna pair<iterator,bool>, dove bool è true solo se inserisce davvero.
+    // insert() ritorna pair<iterator, bool>, dove bool è true solo se inserisce davvero.
     auto inserimento = chiaviVoci_.insert(key);
 
     // Caso 1: nuova lavorazione -> la salvo nel vector (ownership trasferita)
@@ -129,28 +129,29 @@ void Preventivo::aggiungiVoce(std::unique_ptr<VoceCosto> voce) {
 }
 
 
-//Sintassi alternativa: p += std::move(voce);
 Preventivo& Preventivo::operator+=(std::unique_ptr<VoceCosto> voce) {
     aggiungiVoce(std::move(voce));
     return *this;
 }
 
 double Preventivo::totale() const {
-    // std::accumulate(inizio, fine, valore_iniziale, operazione_binaria)
+    // Sommo i subtotali delle voci Accumulate + Lambda
     return std::accumulate(
         voci_.begin(),
         voci_.end(),
         0.0,
         [](double acc, const std::unique_ptr<VoceCosto>& voce) {
+
             // La lambda somma l'accumulatore corrente col subtotale della voce
             return acc + voce->subtotale();
+
         }
     );
 }
 
 double Preventivo::totaleMq() const {
-    // Utilizzo il mio template 'aggrega' per dimostrare la flessibilità del codice.
-    // Qui aggrego le quantità (mq) invece dei prezzi.
+    // Template 'aggrega'
+    // Qui aggrego le quantità (mq)
     return aggrega(
         [](double acc, const VoceCosto& voce) {
             return acc + voce.getQuantita();
@@ -161,14 +162,13 @@ double Preventivo::totaleMq() const {
 
 
 // Ordina le voci per nome (ordine alfabetico crescente).
-// Per costruzione, in voci_ non inseriamo mai puntatori null.
 void Preventivo::ordinaPerNome() {
     std::sort(
         voci_.begin(),
         voci_.end(),
         [](const std::unique_ptr<VoceCosto>& a,
            const std::unique_ptr<VoceCosto>& b) {
-            // se per qualche motivo uno fosse nullo, lo mettiamo in fondo
+            // se per qualche motivo uno fosse nullo, lo metto in fondo
             if (!a && !b) return false;
             if (!a)      return false; // a "dopo" b
             if (!b)      return true;  // a "prima" di b
@@ -185,11 +185,11 @@ void Preventivo::ordinaPerNome() {
 std::string Preventivo::riepilogo() const {
     std::ostringstream oss;
 
-    // Intestazione "più da preventivo"
+    // Intestazione
     oss << "EDILCOLOR - Preventivo lavori di tinteggiatura/cartongesso\n";
     oss << "============================================================\n";
 
-    // Data di stampa (non di creazione, ma va benissimo per l'esame)
+    // Data di stampa
     std::time_t now = std::time(nullptr);
     std::tm* ptm = std::localtime(&now);
     char dataBuf[16];
@@ -201,7 +201,7 @@ std::string Preventivo::riepilogo() const {
     oss << "Totale Mq lavorati: " << totaleMq() << " mq\n";
     oss << "Stato dell'immobile: " << descriviGrado(grado_) << "\n\n";
 
-    // da qui in poi voglio formattazione a 2 decimali per i numeri
+    // Formatazzione dei numeri
     oss << std::fixed << std::setprecision(2);
 
 
@@ -211,6 +211,7 @@ std::string Preventivo::riepilogo() const {
         oss << "Dettaglio voci:\n";
         oss << "--------------------------------------------\n";
 
+        // Polimorfismo: vocePtr è VoceCosto* ma subtotale() è virtual
         for (const std::unique_ptr<VoceCosto>& vocePtr : voci_) {
             if (!vocePtr) continue;
 
@@ -227,7 +228,7 @@ std::string Preventivo::riepilogo() const {
         oss << "--------------------------------------------\n";
     }
 
-    // Calcolo imponibile, IVA e totale "in stile preventivo"
+    // Calcolo imponibile, IVA e totale
     double imponibile = totale();
     constexpr double ALIQUOTA_IVA = 0.22;
     double iva = imponibile * ALIQUOTA_IVA;
