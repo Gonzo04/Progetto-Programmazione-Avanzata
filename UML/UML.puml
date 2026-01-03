@@ -1,7 +1,7 @@
 @startuml
 
 ' =========================
-' STILI
+' STILI VISIVI
 ' =========================
 skinparam classAttributeIconSize 0
 skinparam linetype ortho
@@ -65,8 +65,11 @@ package "Utility & UI" {
     + {static} chiediConferma(domanda: const std::string&) : bool
     + {static} nomeClienteValido(s: const std::string&) : bool
     + {static} getLocalTimeSafe() : std::tm
-    + {static} getLocalTimeSafe(now: std::time_t) : std::tm
   }
+  note right of Utils::getLocalTimeSafe
+    Thread-Safe: usa mutex statico
+    per proteggere std::localtime
+  end note
 
   class GestioneInputUI <<utility>> {
     + {static} chiediGradoDifficolta() : GradoDifficolta
@@ -206,17 +209,11 @@ package "Pattern" {
   }
 
   class RegolaTinteggiatura {
-    + creaVoce(nomeCiclo: const std::string&,
-               mq: double,
-               listino: const std::shared_ptr<ListinoPrezzi>&,
-               grado: GradoDifficolta) const : std::unique_ptr<VoceCosto>
+    + creaVoce(...) const : std::unique_ptr<VoceCosto>
   }
 
   class RegolaCartongesso {
-    + creaVoce(nomeCiclo: const std::string&,
-               mq: double,
-               listino: const std::shared_ptr<ListinoPrezzi>&,
-               grado: GradoDifficolta) const : std::unique_ptr<VoceCosto>
+    + creaVoce(...) const : std::unique_ptr<VoceCosto>
   }
 
   class CalcolatorePreventivo {
