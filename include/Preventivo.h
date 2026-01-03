@@ -8,6 +8,14 @@
 
 //Classe per rappresentare il preventivo completo del cliente
 class Preventivo {
+private:
+    std::string id_;       // es. "P2025-001"
+    std::string cliente_;  // nome del cliente
+    GradoDifficolta grado_;
+
+    // Contenitore polimorfo di voci: ogni elemento è un unique_ptr<VoceCosto>
+    std::vector<std::unique_ptr<VoceCosto>> voci_;
+
 public:
     //Costruttore di default
     Preventivo()
@@ -71,13 +79,7 @@ public:
         return voci_;
     }
 
-private:
-    std::string id_;       // es. "P2025-001"
-    std::string cliente_;  // nome del cliente
-    GradoDifficolta grado_;
 
-    // Contenitore polimorfo di voci: ogni elemento è un unique_ptr<VoceCosto>
-    std::vector<std::unique_ptr<VoceCosto>> voci_;
 };
 
 // Operatore + : combina due preventivi (somma delle voci)

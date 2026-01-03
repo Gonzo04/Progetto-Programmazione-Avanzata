@@ -10,12 +10,16 @@ class ListinoPrezzi; // Forward declaration
 class RegolaCosto;   // Forward declaration
 
 class CalcolatorePreventivo {
+
+private:
+    const RegolaCosto* regola_;
+
 public:
     CalcolatorePreventivo();
 
     void setRegola(const RegolaCosto* regola);
 
-    // [MODIFICA] Cambiato const ListinoPrezzi& in const std::shared_ptr<ListinoPrezzi>&
+
     void aggiungiLavoro(
         Preventivo& preventivo,
         const std::string& nomeCiclo,
@@ -23,9 +27,7 @@ public:
         const std::shared_ptr<ListinoPrezzi>& listino,
         GradoDifficolta grado
     );
-
-private:
-    const RegolaCosto* regola_;
 };
+
 
 #endif

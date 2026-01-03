@@ -7,6 +7,26 @@
 //VoceCosto generica del preventivo (classe base astratta)
 // Le classi derivate (es. Tinteggiatura, Cartongesso) implementano il calcolo del costo.
 class VoceCosto {
+
+protected:
+    // protected: VoceCosto non si istanzia direttamente, ma solo tramite classi derivate
+
+    VoceCosto(std::string  nome,
+              std::string  unita,
+              double quantita,
+              double prezzo)
+        : nome_(std::move(nome)),
+          unitaMisura_(std::move(unita)),
+          quantita_(quantita),
+          prezzoUnitario_(prezzo),
+          coefficiente_(1.0) {}
+
+    std::string nome_;          // nome del ciclo/lavorazione
+    std::string unitaMisura_;   // es. "m^2"
+    double quantita_       = 0.0;
+    double prezzoUnitario_ = 0.0;  // €/unità
+    double coefficiente_   = 1.0;  // Coeff. Legato alla difficoltà
+
 public:
 
 
@@ -39,24 +59,7 @@ public:
     virtual std::unique_ptr<VoceCosto> clone() const = 0;
 
 
-protected:
-    // protected: VoceCosto non si istanzia direttamente, ma solo tramite classi derivate
 
-    VoceCosto(std::string  nome,
-              std::string  unita,
-              double quantita,
-              double prezzo)
-        : nome_(std::move(nome)),
-          unitaMisura_(std::move(unita)),
-          quantita_(quantita),
-          prezzoUnitario_(prezzo),
-          coefficiente_(1.0) {}
-
-    std::string nome_;          // nome del ciclo/lavorazione
-    std::string unitaMisura_;   // es. "m^2"
-    double quantita_       = 0.0;
-    double prezzoUnitario_ = 0.0;  // €/unità
-    double coefficiente_   = 1.0;  // Coeff. Legato alla difficoltà
 
 
 };

@@ -20,6 +20,12 @@ class ListinoPrezzi;
 class VoceCosto;
 
 class VoceCartongessoBuilder {
+private:
+    std::string nomeCiclo_;
+    double mq_;
+    std::shared_ptr<ListinoPrezzi> listino_;
+    GradoDifficolta grado_;
+
 public:
     // Costruttore: inizializza con valori "non validi"
     VoceCartongessoBuilder();
@@ -33,11 +39,7 @@ public:
     // Costruisce l'oggetto finale (VoceCartongesso) e lo ritorna come VoceCosto
     std::unique_ptr<VoceCosto> build() const;
 
-private:
-    std::string nomeCiclo_;
-    double mq_;
-    std::shared_ptr<ListinoPrezzi> listino_;
-    GradoDifficolta grado_;
+
 };
 
 

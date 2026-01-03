@@ -29,7 +29,7 @@ static const CicloInfo CICLI_LAVORAZIONI[] = {
     {"Rasatura gesso su muratura", 12.00, CategoriaLavoro::Cartongesso, SottoCategoriaLavoro::Cart_FinituraMuratura}
 };
 
-static const std::size_t NUM_CICLI = sizeof(CICLI_LAVORAZIONI) / sizeof(CicloInfo);
+static constexpr  std::size_t NUM_CICLI = sizeof(CICLI_LAVORAZIONI) / sizeof(CicloInfo);
 
 std::size_t getNumeroCicli() {
     return NUM_CICLI;
