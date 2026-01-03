@@ -1,13 +1,12 @@
 #include "Preventivo.h"
 #include "VoceCosto.h"
+#include "Utils.h"
 #include <sstream>     // std::ostringstream "per costruire il riepilogo di una stringa"
 #include <utility>     // std::move
-#include <ctime>
 #include <algorithm>
 #include <iomanip>    // std::fixed, std::setprecision
 #include <numeric>
 #include <set>
-#include <mutex>
 
 
 static const char* descriviGrado(GradoDifficolta g) {
@@ -190,17 +189,9 @@ std::string Preventivo::riepilogo() const {
     oss << "EDILCOLOR - Preventivo lavori di tinteggiatura/cartongesso\n";
     oss << "============================================================\n";
 
-    // Data di stampa
-    static std::mutex g_timeMutex;
+    // Funzione per il controllo della data
+    std::tm tmCopy = getLocalTimeSafe();
 
-    std::time_t now = std::time(nullptr);
-
-    std::tm tmCopy{};
-    {
-        std::lock_guard<std::mutex> lock(g_timeMutex);
-        std::tm* ptm = std::localtime(&now);
-        if (ptm) tmCopy = *ptm;
-    }
     char dataBuf[16];
     std::strftime(dataBuf, sizeof(dataBuf), "%d/%m/%Y", &tmCopy);
 

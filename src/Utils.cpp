@@ -6,6 +6,7 @@
 #include <stdexcept>
 #include <cctype>
 #include <algorithm>
+#include <mutex>
 
 
 void pulisciInput() {
@@ -157,4 +158,16 @@ bool nomeClienteValido(const std::string& s) {
     );
 
     return ok && haAlmenoUnaLettera;
+}
+
+// Funzione per rendere std::localtime thread-safe
+std::tm getLocalTimeSafe() {
+    static std::mutex mtx; // Mutex statico interno
+    std::time_t now = std::time(nullptr);
+
+    std::lock_guard<std::mutex> lock(mtx);
+    std::tm* ptm = std::localtime(&now);
+
+    //se localtime fallisce ritorna struct vuota
+    return ptm ? *ptm : std::tm{};
 }

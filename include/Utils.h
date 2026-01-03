@@ -2,6 +2,8 @@
 #define UTILS_H
 
 #include <string>
+#include <ctime>
+
 
 /*
     Utils contiene funzioni di supporto generiche
@@ -31,4 +33,6 @@ bool chiediConferma(const std::string& domanda);
 // Controllo sul nome cliente: solo lettere/spazi/'/-
 bool nomeClienteValido(const std::string& s);
 
+// Restituisce la data/ora locale in modo thread-safe
+std::tm getLocalTimeSafe();
 #endif // UTILS_H

@@ -1,27 +1,17 @@
 #include "IdPreventivoGenerator.h"
+#include "Utils.h"
 
 #include <atomic>
-#include <ctime>
 #include <iomanip>
 #include <sstream>
-#include <mutex>
+
 
 static std::atomic<int> g_contatorePreventivi(1);
 
-// Mutex per proteggere la chiamata a std::localtime la quale non è thread-safe
-static std::mutex g_timeMutex;
-
 std::string generaIdPreventivo() {
-    // Leggo la data corrente
-    std::time_t now = std::time(nullptr);
 
-    // Copio la struct tm in una variabile locale
-    std::tm tmCopy;
-    {
-        std::lock_guard<std::mutex> lock(g_timeMutex);
-        std::tm* ptm = std::localtime(&now);
-        tmCopy = *ptm;
-    }
+    // Recupero della data in modo sicuro da Utils
+    std::tm tmCopy = getLocalTimeSafe();
 
     // Trasformo la data in stringa YYYYMMDD usando la copia
     char data[16];
