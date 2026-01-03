@@ -8,7 +8,7 @@
 #include "ListinoPrezzi.h"
 #include "GradoDifficolta.h"
 
-// Voce concreta del preventivo per lavori di cartongesso.
+// Voce concreta per lavori di cartongesso.
 // Inizializza prezzo €/mq dal ListinoPrezzi e coefficiente in base al GradoDifficolta.
 class VoceCartongesso : public VoceCosto {
 public:
@@ -24,10 +24,9 @@ public:
     // Subtotale = quantità * prezzoUnitario * coefficiente
     double subtotale() const override;
 
-    // Etichetta logica usata per stampe/CSV senza RTTI (niente dynamic_cast)
+    // Etichetta logica usata per stampe/CSV (niente dynamic_cast)
     const char* tipoVoce() const override { return "Cartongesso"; }
-
-    // Copia polimorfa (deep copy) necessaria quando si copia un Preventivo con unique_ptr<VoceCosto>
+    // Copia polimorfa: quando copio un Preventivo devo clonare le voci (unique_ptr non è copiabile)
     std::unique_ptr<VoceCosto> clone() const override;
 };
 

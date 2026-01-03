@@ -1,10 +1,6 @@
 #include <iostream>
 #include <memory>
-#include <thread>
-#include <mutex>
-#include <list>
-#include <atomic>
-#include <chrono>
+#include <stdexcept>
 
 #include "Preventivo.h"
 #include "ListinoPrezzi.h"
@@ -20,28 +16,21 @@
 
 static constexpr double MQ_MAX_REALISTICI = 1000000.0;
 
-std::mutex gConsoleMutex;
+struct ContestoApp {
+    std::shared_ptr<ListinoPrezzi> listino;
+    RegolaTinteggiatura regolaTinteggiatura;
+    RegolaCartongesso regolaCartongesso;
+    CalcolatorePreventivo calcolatore;
+    GradoDifficolta grado;
+};
 
-int main() {
-    std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
-
-    auto listino = std::make_shared<ListinoPrezzi>();
-    try {
-        caricaListinoDefault(*listino);
-        std::cout << "Listino caricato correttamente.\n\n";
-    } catch (const std::exception& e) {
-        std::cerr << "Errore caricamento listino: " << e.what() << std::endl;
-        return 1;
-    }
-
-    std::string id = generaIdPreventivo();
-    std::cout << "ID preventivo assegnato automaticamente: " << id << "\n\n";
-
+static std::string chiediNomeCliente() {
     std::string cliente;
+
     while (true) {
         std::cout << "Inserisci nome e cognome: ";
         std::string linea;
-        if (!std::getline(std::cin, linea)) return 1;
+        if (!std::getline(std::cin, linea)) return "";
 
         cliente = trim(linea);
 
@@ -57,13 +46,28 @@ int main() {
         break;
     }
 
-    GradoDifficolta grado = GestioneInputUI::chiediGradoDifficolta();
-    Preventivo preventivo(id, cliente, grado);
+    return cliente;
+}
 
-    RegolaTinteggiatura regolaTinteggiatura;
-    RegolaCartongesso  regolaCartongesso;
-    CalcolatorePreventivo calcolatore;
+static Preventivo inizializzaPreventivo(ContestoApp& ctx) {
+    ctx.listino = std::make_shared<ListinoPrezzi>();
 
+    caricaListinoDefault(*ctx.listino);
+    std::cout << "Listino caricato correttamente.\n\n";
+
+    std::string id = generaIdPreventivo();
+    std::cout << "ID preventivo assegnato automaticamente: " << id << "\n\n";
+
+    std::string cliente = chiediNomeCliente();
+    if (cliente.empty()) {
+        throw std::runtime_error("Input terminato.");
+    }
+
+    ctx.grado = GestioneInputUI::chiediGradoDifficolta();
+    return {id, cliente, ctx.grado};
+}
+
+static void inserisciVoci(Preventivo& preventivo, ContestoApp& ctx) {
     CategoriaLavoro catCorr = {};
     SottoCategoriaLavoro sottoCatCorr = {};
     bool haCat = false;
@@ -94,10 +98,10 @@ int main() {
         }
 
         try {
-            if (isCartongesso) calcolatore.setRegola(&regolaCartongesso);
-            else calcolatore.setRegola(&regolaTinteggiatura);
+            if (isCartongesso) ctx.calcolatore.setRegola(&ctx.regolaCartongesso);
+            else ctx.calcolatore.setRegola(&ctx.regolaTinteggiatura);
 
-            calcolatore.aggiungiLavoro(preventivo, nomeCiclo, mq, listino, grado);
+            ctx.calcolatore.aggiungiLavoro(preventivo, nomeCiclo, mq, ctx.listino, ctx.grado);
             std::cout << " -> Aggiunta voce: " << nomeCiclo << "\n";
         } catch (const std::exception& e) {
             std::cerr << "Errore creazione voce: " << e.what() << "\n";
@@ -105,79 +109,40 @@ int main() {
 
         continua = chiediConferma("\nAggiungere altra voce?");
     }
+}
 
-    preventivo.ordinaPerNome();
+int main() {
+    std::cout << "=== PREVENTIVATORE EDILCOLOR ===\n\n";
 
-    std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
-    std::cout << preventivo.riepilogo() << std::endl;
+    try {
+        ContestoApp ctx;
+        Preventivo preventivo = inizializzaPreventivo(ctx);
 
-    std::string baseName = preventivo.getId();
-    if (baseName.empty()) baseName = "preventivo";
+        inserisciVoci(preventivo, ctx);
 
-    // =======================
-    // SALVATAGGIO (LIST + ATOMIC)
-    // =======================
-    std::cout << "\nSalvataggio in corso";
+        preventivo.ordinaPerNome();
 
-    // Commento da studente:
-    // Qui uso std::list<std::thread> come "mini thread pool" estendibile:
-    // ogni task è un thread (txt, csv). In futuro potrei aggiungere PDF, invio mail, ecc.
-    std::list<std::thread> threadPool;
+        std::cout << "\n=== RIEPILOGO PREVENTIVO ===\n";
+        std::cout << preventivo.riepilogo() << std::endl;
 
-    std::atomic<int> taskFiniti(0);          // quanti task hanno terminato
-    std::atomic<bool> salvataggioOk(true);   // diventa false se almeno un task fallisce
-    constexpr  int NUM_TASK = 2;                  // txt + csv
+        std::string baseName = preventivo.getId();
+        if (baseName.empty()) baseName = "preventivo";
 
-    // Task 1: TXT (con simulazione caricamento)
-    threadPool.emplace_back([&]() {
-        try {
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // simulazione "operazione lunga"
-            salvaPreventivoSuTxt(preventivo, baseName + ".txt");
-        } catch (const std::exception& e) {
-            salvataggioOk = false;
-            std::lock_guard<std::mutex> lock(gConsoleMutex);
-            std::cerr << "\nErrore salvataggio TXT: " << e.what() << "\n";
+        bool ok = salvaPreventivoConcorrente(preventivo, baseName);
+
+        if (ok) {
+            std::cout << "\nSalvataggio CSV e TXT completato! File: " << baseName << "\n";
+        } else {
+            std::cout << "\nSalvataggio NON riuscito \n Controlla il percorso.\n";
         }
-        ++taskFiniti;
-    });
 
-    // Task 2: CSV
-    // Task 2: CSV
-    threadPool.emplace_back([&]() {
-        try {
-            std::this_thread::sleep_for(std::chrono::seconds(2)); // simulazione "operazione lunga"
-            salvaPreventivoSuCsv(preventivo, baseName + ".csv");
-        } catch (const std::exception& e) {
-            salvataggioOk = false;
-            std::lock_guard<std::mutex> lock(gConsoleMutex);
-            std::cerr << "\nErrore salvataggio CSV: " << e.what() << "\n";
-        }
-        ++taskFiniti;
-    });
-
-    // Puntini finché non finiscono entrambi i task
-    while (taskFiniti.load() < NUM_TASK) {
-        {
-            std::lock_guard<std::mutex> lock(gConsoleMutex);
-            std::cout << "." << std::flush;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
-    }
-
-    // join dei thread
-    for (std::thread& t : threadPool) {
-        if (t.joinable()) t.join();
-    }
-
-    if (salvataggioOk) {
-        std::cout << "\nSalvataggio CSV e TXT completato! File: " << baseName << "\n";
-    } else {
-        std::cout << "\nSalvataggio NON riuscito \n Controlla il percorso.\n";
+    } catch (const std::exception& e) {
+        std::cerr << "Errore: " << e.what() << std::endl;
+        return 1;
     }
 
     std::cout << "Premi INVIO per uscire";
     std::string dummy;
     std::getline(std::cin, dummy);
-
     return 0;
 }

@@ -4,8 +4,10 @@
 #include <string>
 #include <memory>
 #include <utility>
+
 //VoceCosto generica del preventivo (classe base astratta)
 // Le classi derivate (es. Tinteggiatura, Cartongesso) implementano il calcolo del costo.
+
 class VoceCosto {
 
 protected:
@@ -21,11 +23,12 @@ protected:
           prezzoUnitario_(prezzo),
           coefficiente_(1.0) {}
 
-    std::string nome_;          // nome del ciclo/lavorazione
-    std::string unitaMisura_;   // es. "m^2"
-    double quantita_       = 0.0;
-    double prezzoUnitario_ = 0.0;  // €/unità
-    double coefficiente_   = 1.0;  // Coeff. Legato alla difficoltà
+    // Dati comuni a tutte le voci (condivisi da tinteggiatura/cartongesso/altre future)
+    std::string nome_;          // nome del ciclo/lavorazione (es. "Idropittura lavabile")
+    std::string unitaMisura_;   // unità di misura (es. "m^2")
+    double quantita_       = 0.0; // quantità inserita (es. mq)
+    double prezzoUnitario_ = 0.0; // prezzo base per unità (€/mq)
+    double coefficiente_   = 1.0; // maggiorazione legata al grado di difficoltà (Nuovo/Disabitato/Abitato)
 
 public:
 
@@ -34,14 +37,15 @@ public:
     // Distruttore virtuale: necessario perché gli oggetti verranno gestiti tramite puntatore a base.
     virtual ~VoceCosto() = default;
 
-    // Dati comuni a tutte le voci
+
+    // Il get da accesso in sola lettura ai dati comuni.
     const std::string& getNome() const          { return nome_; }
     const std::string& getUnitaMisura() const   { return unitaMisura_; }
     double getQuantita() const                  { return quantita_; }
     double getPrezzoUnitario() const            { return prezzoUnitario_; }
     double getCoefficiente() const              { return coefficiente_; }
 
-    // Setter: utili in futuro voglio per modificare una voce già creata
+    // Setter perchè utile in futuro se voglio modificare una voce già creata
     void setNome(const std::string& n)          { nome_ = n; }
     void setUnitaMisura(const std::string& u)   { unitaMisura_ = u; }
     void setQuantita(double q)                  { quantita_ = q; }
@@ -55,7 +59,7 @@ public:
     // Tipo logico della voce (serve per stampe/CSV senza usare dynamic_cast).
     virtual const char* tipoVoce() const = 0;
 
-    // Copia polimorfa: permette la "deep copy" di oggetti gestiti tramite puntatore a base.
+    // Copia polimorfa ("virtual constructor"): permette di copiare una voce concreta tramite puntatore a base.2
     virtual std::unique_ptr<VoceCosto> clone() const = 0;
 
 
@@ -66,16 +70,3 @@ public:
 
 #endif
 
-/*
-  VoceCosto è la classe base astratta per una voce di preventivo.
-  Il Preventivo memorizza le voci tramite std::unique_ptr<VoceCosto>,
-  così nello stesso contenitore posso tenere voci di tipi diversi (es. tinteggiatura, cartongesso) usando il polimorfismo.
-
-  Ogni classe derivata deve implementare:
-  - subtotale(): la formula di calcolo del costo della voce
-  - clone(): una copia polimorfa (deep copy), utile quando si vuole copiare un Preventivo,
-    perché std::unique_ptr non è copiabile e il tipo concreto della voce è noto solo a runtime.
-
-  Il costruttore è protected perché VoceCosto non deve essere creata direttamente:
-  si istanzia solo tramite classi derivate.
- */

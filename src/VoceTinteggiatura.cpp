@@ -1,16 +1,19 @@
 #include "VoceTinteggiatura.h"
 
-#include <utility> // std::move
+#include <utility>
 
 VoceTinteggiatura::VoceTinteggiatura(std::string nomeCiclo,
                                      double mq,
                                      const ListinoPrezzi& listino,
                                      GradoDifficolta grado)
     : VoceCosto(
-          nomeCiclo,                         // per calcolare prezzo in modo sicuro
+    // Uso nomeCiclo (parametro) per prendere il prezzo dal listino,
+    // dato che la parte base è ancora in costruzione non posso usare getNome()
+
+          nomeCiclo,
           "m^2",
           mq,
-          listino.getPrezzoMq(nomeCiclo)     // usa il parametro, NON getNome()
+          listino.getPrezzoMq(nomeCiclo)
       )
 {
     // ora che la base è costruita posso impostare il coefficiente
@@ -24,6 +27,7 @@ double VoceTinteggiatura::subtotale() const {
     return quantita_ * prezzoUnitario_ * coefficiente_;
 }
 
+// Copia polimorfa: creo un nuovo oggetto dello stesso tipo concreto.
 std::unique_ptr<VoceCosto> VoceTinteggiatura::clone() const {
     return std::unique_ptr<VoceCosto>(new VoceTinteggiatura(*this));
 }

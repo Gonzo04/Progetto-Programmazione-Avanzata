@@ -7,7 +7,7 @@
 #include "GradoDifficolta.h"
 
 // Voce concreta per lavori di tinteggiatura.
-// Recupera prezzo €/mq dal listino e applica un coefficiente in base alla difficoltà.
+// Prende il prezzo €/mq dal listino e applica un coefficiente in base alla difficoltà.
 class VoceTinteggiatura : public VoceCosto {
 public:
     // nomeCiclo: chiave del ciclo nel listino
@@ -18,9 +18,12 @@ public:
                       double mq,
                       const ListinoPrezzi& listino,
                       GradoDifficolta grado);
-
+    //Calcolo del totale
     double subtotale() const override;
+
+    // Serve per stampe/CSV senza usare dynamic_cast
     const char* tipoVoce() const override { return "Tinteggiatura"; }
+
     std::unique_ptr<VoceCosto> clone() const override;
 };
 

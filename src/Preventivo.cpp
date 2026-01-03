@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <iomanip>    // std::fixed, std::setprecision
 #include <numeric>
+#include <set>
 
 
 static const char* descriviGrado(GradoDifficolta g) {
@@ -33,18 +34,18 @@ Preventivo::Preventivo(std::string id, std::string cliente, GradoDifficolta grad
 Preventivo::Preventivo(const Preventivo& other)
     : id_(other.id_),
       cliente_(other.cliente_),
-      grado_(other.grado_)
+      grado_(other.grado_),
+      chiaviVoci_(other.chiaviVoci_)
 {
     //Pre-alloco lo spazio per le voci in modo da evitare riallocazioni multiple
     voci_.reserve(other.voci_.size());
-
-    //Per ogni voce dell'altro preventivo, chiamo clone() (polimorfo) e inserisco il unique_ptr risultante nel mio vector
     for (const auto & vocePtr : other.voci_) {
         if (vocePtr) {
             voci_.push_back(vocePtr->clone());
         }
     }
 }
+
 //Copy Assignment Operator
 Preventivo& Preventivo::operator=(const Preventivo& other) {
     //controllo autoassegnazione (a = a)
@@ -53,7 +54,8 @@ Preventivo& Preventivo::operator=(const Preventivo& other) {
     id_      = other.id_;
     cliente_ = other.cliente_;
     grado_   = other.grado_;
-    //Svuoto le voci attuali (gli unique_ptr distruggono le vecchie voci)
+    chiaviVoci_ = other.chiaviVoci_;
+    //Svuoto le voci attuali
     voci_.clear();
     voci_.reserve(other.voci_.size());
 
@@ -72,7 +74,9 @@ Preventivo::Preventivo(Preventivo&& other) noexcept
     : id_(std::move(other.id_)),
       cliente_(std::move(other.cliente_)),
       grado_(other.grado_),
-      voci_(std::move(other.voci_)) {}
+      voci_(std::move(other.voci_)),
+      chiaviVoci_(std::move(other.chiaviVoci_))
+{}
 
 //Move assignment operator
 Preventivo& Preventivo::operator=(Preventivo&& other) noexcept {
@@ -82,16 +86,49 @@ Preventivo& Preventivo::operator=(Preventivo&& other) noexcept {
     cliente_ = std::move(other.cliente_);
     grado_   = other.grado_;
     voci_    = std::move(other.voci_);
+    chiaviVoci_ = std::move(other.chiaviVoci_);
+
 
     return *this;
 }
 
-//Aggiunge una voce trasferendo l'ownership del unique_ptr
 void Preventivo::aggiungiVoce(std::unique_ptr<VoceCosto> voce) {
-    if (voce != nullptr) {
-        voci_.push_back(std::move(voce)); //dopo lo std::move, "voce" è nullo
+
+    if (!voce) return;
+
+    // Creo una chiave logica: stesso tipo + stesso nome => stessa lavorazione
+    // evitando di unire voci diverse che magari hanno lo stesso nome.
+    const std::string key = std::string(voce->tipoVoce()) + "|" + voce->getNome();
+
+    // Il set controlla che sia la prima volta a vedere questa voce
+    // insert() ritorna pair<iterator,bool>, dove bool è true solo se inserisce davvero.
+    auto inserimento = chiaviVoci_.insert(key);
+
+    // Caso 1: nuova lavorazione -> la salvo nel vector (ownership trasferita)
+    if (inserimento.second) {
+        voci_.push_back(std::move(voce));
+        return;
     }
+
+    // Caso 2: lavorazione già presente -> cerco nel vector la voce reale e faccio merge quantità
+    for (auto& voceEsistente : voci_) {
+        if (!voceEsistente) continue;
+
+        const bool stessoTipo = (std::string(voceEsistente->tipoVoce()) == voce->tipoVoce());
+        const bool stessoNome = (voceEsistente->getNome() == voce->getNome());
+
+        if (stessoTipo && stessoNome) {
+            voceEsistente->setQuantita(voceEsistente->getQuantita() + voce->getQuantita());
+            return;
+        }
+    }
+
+
+    // Fallback: se per qualche motivo non trovo la voce, la aggiungo comunque.
+    voci_.push_back(std::move(voce));
 }
+
+
 //Sintassi alternativa: p += std::move(voce);
 Preventivo& Preventivo::operator+=(std::unique_ptr<VoceCosto> voce) {
     aggiungiVoce(std::move(voce));
