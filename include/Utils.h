@@ -33,6 +33,10 @@ bool chiediConferma(const std::string& domanda);
 // Controllo sul nome cliente: solo lettere/spazi/'/-
 bool nomeClienteValido(const std::string& s);
 
-// Restituisce la data/ora locale in modo thread-safe
+/*
+std::localtime utilizza un buffer statico interno condiviso (non è thread-safe).
+Se due thread (es. salvataggio e generazione ID) lo chiamano insieme, si rischia una Data Race.
+Uso un mutex statico locale per serializzare l'accesso e proteggere il buffer.
+*/
 std::tm getLocalTimeSafe();
 #endif // UTILS_H

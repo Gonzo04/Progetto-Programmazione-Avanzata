@@ -1,0 +1,300 @@
+@startuml
+
+' =========================
+' STILI
+' =========================
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam monochrome true
+skinparam classBackgroundColor White
+skinparam shadowing false
+
+' ==========================================================
+' DOMINIO (Enum / Struct)
+' ==========================================================
+package "Dominio" {
+
+  enum GradoDifficolta <<enumeration>> {
+    Nuovo
+    Disabitato
+    Abitato
+  }
+
+  enum CategoriaLavoro <<enumeration>> {
+    Interno
+    Esterno
+    Cartongesso
+  }
+
+  enum SottoCategoriaLavoro <<enumeration>> {
+    InternoCivile
+    InternoIndustriale
+    EsternoCivile
+    EsternoIndustriale
+    Cart_Contropareti
+    Cart_ParetiDivisorie
+    Cart_Controsoffitti
+    Cart_FinituraMuratura
+  }
+
+  class CicloInfo <<struct>> {
+    + nome : const char*
+    + prezzoMq : double
+    + categoria : CategoriaLavoro
+    + sottocategoria : SottoCategoriaLavoro
+  }
+}
+
+' ==========================================================
+' UTILITY / UI / SUPPORTO
+' ==========================================================
+package "Utility & UI" {
+
+  class CatalogoCicli <<utility>> {
+    + {static} getNumeroCicli() : size_t
+    + {static} getCiclo(index: size_t) : CicloInfo
+    + {static} getNomeCicloDaIndice(index: int) : std::string
+    + {static} isCartongessoIndex(index: int) : bool
+  }
+
+  class Utils <<utility>> {
+    + {static} pulisciInput() : void
+    + {static} trim(s: const std::string&) : std::string
+    + {static} leggiIntero(msg: const std::string&) : int
+    + {static} leggiDouble(msg: const std::string&) : double
+    + {static} chiediConferma(domanda: const std::string&) : bool
+    + {static} nomeClienteValido(s: const std::string&) : bool
+    + {static} getLocalTimeSafe() : std::tm
+    + {static} getLocalTimeSafe(now: std::time_t) : std::tm
+  }
+
+  class GestioneInputUI <<utility>> {
+    + {static} chiediGradoDifficolta() : GradoDifficolta
+    + {static} chiediCategoriaLavoro() : CategoriaLavoro
+    + {static} chiediSottoCategoriaLavoro(cat: CategoriaLavoro) : SottoCategoriaLavoro
+    + {static} menuCicliPerCategoria(cat: CategoriaLavoro, sub: SottoCategoriaLavoro) : int
+  }
+
+  class IdPreventivoGenerator <<utility>> {
+    + {static} generaIdPreventivo() : std::string
+  }
+}
+
+' ==========================================================
+' LISTINO
+' ==========================================================
+package "Listino" {
+
+  class ListinoPrezzi {
+    - prezziMq_ : std::map<std::string, double>
+    - coeffDifficolta_ : std::map<GradoDifficolta, double>
+
+    + ListinoPrezzi()
+    + impostaPrezzoMq(nomeCiclo: const std::string&, prezzo: double) : void
+    + impostaCoeff(grado: GradoDifficolta, coeff: double) : void
+    + getPrezzoMq(nomeCiclo: const std::string&) : double
+    + getCoeff(grado: GradoDifficolta) : double
+  }
+
+  class ListinoDefault <<utility>> {
+    + {static} caricaListinoDefault(listino: ListinoPrezzi&) : void
+  }
+}
+
+' ==========================================================
+' VOCI DI COSTO (Polimorfismo + clone)
+' ==========================================================
+package "Voci" {
+
+  abstract class VoceCosto {
+    # nome_ : std::string
+    # unitaMisura_ : std::string
+    # quantita_ : double
+    # prezzoUnitario_ : double
+    # coefficiente_ : double
+
+    # VoceCosto(nome: const std::string&, unita: const std::string&, q: double, p: double)
+
+    + {abstract} ~VoceCosto()
+    + {abstract} subtotale() const : double
+    + {abstract} tipoVoce() const : const char*
+    + {abstract} clone() const : std::unique_ptr<VoceCosto>
+
+    + getNome() const : const std::string&
+    + getUnitaMisura() const : const std::string&
+    + getQuantita() const : double
+    + getPrezzoUnitario() const : double
+    + getCoefficiente() const : double
+    + setQuantita(q: double) : void
+  }
+
+  class VoceTinteggiatura {
+    + VoceTinteggiatura(nomeCiclo: const std::string&, mq: double, listino: const ListinoPrezzi&, g: GradoDifficolta)
+    + subtotale() const : double
+    + tipoVoce() const : const char*
+    + clone() const : std::unique_ptr<VoceCosto>
+  }
+
+  class VoceCartongesso {
+    + VoceCartongesso(nomeCiclo: const std::string&, mq: double, listino: const ListinoPrezzi&, g: GradoDifficolta)
+    + subtotale() const : double
+    + tipoVoce() const : const char*
+    + clone() const : std::unique_ptr<VoceCosto>
+  }
+}
+
+' ==========================================================
+' PREVENTIVO (contenitore + merge)
+' ==========================================================
+package "Preventivo" {
+
+  class Preventivo {
+    - id_ : std::string
+    - cliente_ : std::string
+    - grado_ : GradoDifficolta
+    - voci_ : std::vector<std::unique_ptr<VoceCosto>>
+    - chiaviVoci_ : std::set<std::string>
+
+    + Preventivo()
+    + Preventivo(id: const std::string&, cliente: const std::string&, grado: GradoDifficolta)
+
+    + Preventivo(other: const Preventivo&)
+    + operator=(other: const Preventivo&) : Preventivo&
+
+    + Preventivo(other: Preventivo&&)
+    + operator=(other: Preventivo&&) : Preventivo&
+
+    + aggiungiVoce(voce: std::unique_ptr<VoceCosto>) : void
+    + operator+=(voce: std::unique_ptr<VoceCosto>) : Preventivo&
+
+    + totale() const : double
+    + totaleMq() const : double
+    + ordinaPerNome() : void
+    + riepilogo() const : std::string
+
+    + getId() const : const std::string&
+    + getCliente() const : const std::string&
+    + getGrado() const : GradoDifficolta
+    + getVoci() const : const std::vector<std::unique_ptr<VoceCosto>>&
+  }
+}
+
+' ==========================================================
+' PATTERN (Builder + Strategy + Orchestratore)
+' ==========================================================
+package "Pattern" {
+
+  class VoceCartongessoBuilder {
+    - nomeCiclo_ : std::string
+    - mq_ : double
+    - listino_ : std::shared_ptr<ListinoPrezzi>
+    - grado_ : GradoDifficolta
+
+    + VoceCartongessoBuilder()
+    + setNomeCiclo(nome: const std::string&) : VoceCartongessoBuilder&
+    + setMq(mq: double) : VoceCartongessoBuilder&
+    + setListino(listino: const std::shared_ptr<ListinoPrezzi>&) : VoceCartongessoBuilder&
+    + setGrado(grado: GradoDifficolta) : VoceCartongessoBuilder&
+    + build() const : std::unique_ptr<VoceCosto>
+  }
+
+  abstract class RegolaCosto {
+    + {abstract} creaVoce(nomeCiclo: const std::string&,
+                          mq: double,
+                          listino: const std::shared_ptr<ListinoPrezzi>&,
+                          grado: GradoDifficolta) const : std::unique_ptr<VoceCosto>
+  }
+
+  class RegolaTinteggiatura {
+    + creaVoce(nomeCiclo: const std::string&,
+               mq: double,
+               listino: const std::shared_ptr<ListinoPrezzi>&,
+               grado: GradoDifficolta) const : std::unique_ptr<VoceCosto>
+  }
+
+  class RegolaCartongesso {
+    + creaVoce(nomeCiclo: const std::string&,
+               mq: double,
+               listino: const std::shared_ptr<ListinoPrezzi>&,
+               grado: GradoDifficolta) const : std::unique_ptr<VoceCosto>
+  }
+
+  class CalcolatorePreventivo {
+    - regola_ : const RegolaCosto*
+
+    + CalcolatorePreventivo()
+    + setRegola(regola: const RegolaCosto*) : void
+    + aggiungiLavoro(prev: Preventivo&,
+                     nomeCiclo: const std::string&,
+                     mq: double,
+                     listino: const std::shared_ptr<ListinoPrezzi>&,
+                     grado: GradoDifficolta) : void
+  }
+}
+
+' ==========================================================
+' SALVATAGGIO
+' ==========================================================
+package "Salvataggio" {
+
+  class SalvataggioPreventivo <<utility>> {
+    + {static} salvaPreventivoSuTxt(p: const Preventivo&, filename: const std::string&) : void
+    + {static} salvaPreventivoSuCsv(p: const Preventivo&, filename: const std::string&) : void
+    + {static} salvaPreventivoConcorrente(p: const Preventivo&, baseName: const std::string&) : bool
+  }
+
+  note right of SalvataggioPreventivo
+    Salvataggio concorrente:
+    - 2 thread (TXT/CSV)
+    - atomic per completamento/esito
+    - mutex per output sincronizzato
+  end note
+}
+
+' ==========================================================
+' RELAZIONI
+' ==========================================================
+
+' Enum / Struct links
+CicloInfo --> CategoriaLavoro
+CicloInfo --> SottoCategoriaLavoro
+
+' Utility dependencies
+GestioneInputUI ..> CatalogoCicli : <<use>>
+GestioneInputUI ..> Utils : <<use>>
+IdPreventivoGenerator ..> Utils : <<use>> (getLocalTimeSafe)
+Preventivo ..> Utils : <<use>> (getLocalTimeSafe)
+
+' Listino init
+ListinoDefault ..> CatalogoCicli : <<use>>
+ListinoDefault ..> ListinoPrezzi : <<use>>
+
+' Polimorfismo
+VoceCosto <|-- VoceTinteggiatura
+VoceCosto <|-- VoceCartongesso
+
+' Preventivo possiede le voci (unique_ptr => composizione)
+Preventivo *-- "0..*" VoceCosto : possiede
+
+' Voci usano listino (by const ref)
+VoceTinteggiatura ..> ListinoPrezzi : <<use>>
+VoceCartongesso ..> ListinoPrezzi : <<use>>
+
+' Strategy
+RegolaCosto <|-- RegolaTinteggiatura
+RegolaCosto <|-- RegolaCartongesso
+CalcolatorePreventivo o-- "0..1" RegolaCosto : usa strategia (raw ptr)
+
+' Builder
+RegolaCartongesso ..> VoceCartongessoBuilder : <<use>>
+VoceCartongessoBuilder --> "1" ListinoPrezzi : shared_ptr
+VoceCartongessoBuilder ..> VoceCartongesso : <<create>>
+
+' Regole creano voci concrete
+RegolaTinteggiatura ..> VoceTinteggiatura : <<create>>
+RegolaCartongesso ..> VoceCartongesso : <<create>>
+
+' Salvataggio usa Preventivo
+SalvataggioPreventivo ..> Preventivo : <<use>>
+
+@enduml
