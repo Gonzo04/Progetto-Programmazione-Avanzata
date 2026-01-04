@@ -53,7 +53,7 @@ void salvaPreventivoSuCsv(const Preventivo& p, const std::string& filename) {
     const double imponibile = p.totale();
 
     out << "TotaleImponibile;;;;;" << imponibile << "\n";
-    out << "IVA(22%);;;;;" << imponibile * IVA << "\n";
+    out << "IVA(22%);;;;;;" << imponibile * IVA << "\n";
     out << "TotaleComplessivo;;;;;" << imponibile * (1.0 + IVA) << "\n";
 }
 
@@ -94,6 +94,7 @@ bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName
     // Task 2: CSV
     threadPool.emplace_back([&]() {
         try {
+            // ho inserito volutamente questo sleep per rallentare il programma in modo da simulare un caricamento
             std::this_thread::sleep_for(std::chrono::seconds(2));
             salvaPreventivoSuCsv(p, baseName + ".csv");
         } catch (const std::exception& e) {
