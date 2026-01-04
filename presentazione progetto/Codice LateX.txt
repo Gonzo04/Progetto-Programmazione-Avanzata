@@ -159,8 +159,8 @@ I requisiti funzionali descrivono i comportamenti specifici e le funzioni che il
     Il salvataggio dei due formati viene eseguito in \textbf{concorrenza} (due task paralleli) con sincronizzazione dell'output su console.
     Nel CSV è presente un'intestazione e una riga per ogni voce; seguono righe di riepilogo (imponibile, IVA, totale).
 
-    \item \textbf{RF6 - Interfaccia Utente (CLI):}
-    L'interazione deve avvenire tramite interfaccia a riga di comando (Console), guidando l'utente attraverso menu numerici sequenziali per minimizzare gli errori di input.
+   \item \textbf{RF6 - Interfaccia Utente (CLI):}
+    L'interazione avviene tramite console, guidando l'utente con prompt e selezioni numeriche contestuali (categorie/sottocategorie/cicli) e validazione robusta dell'input per minimizzare gli errori.
 \end{itemize}
 
 \section{Requisiti Non Funzionali}
@@ -258,18 +258,16 @@ Di seguito vengono descritte le classi principali, le loro responsabilità e le 
         \item \textbf{Proprietà:}
             \begin{itemize}
                 \item \texttt{id\_ (string)}: Identificativo univoco del preventivo.
-                \item \texttt{cliente\_ (string)}: Nome del committente.
-                \item \texttt{grado\_ (GradoDifficolta)}: Enum che definisce lo stato dell'immobile (es. \textit{Abitato}), influenzando i costi.
-                \item \texttt{voci\_ (vector<unique\_ptr<VoceCosto>>)}: Collezione polimorfica delle lavorazioni.
-               \item \texttt{voci\_ (vector<unique\_ptr<VoceCosto>>)}: Collezione polimorfica delle lavorazioni.
-               \item \texttt{chiaviVoci\_ (set<string>)}: Set di chiavi logiche (\textit{tipo|nome}) usato come guardia per evitare duplicati; se una lavorazione è già presente, si uniscono le quantità.
+                 \item \texttt{cliente\_ (string)}: Nome del committente.
+                 \item \texttt{grado\_ (GradoDifficolta)}: Enum che definisce lo stato dell'immobile.
+                 \item \texttt{voci\_ (vector<unique\_ptr<VoceCosto>>)}: Collezione polimorfica delle lavorazioni.
+                \item \texttt{chiaviVoci\_ (set<string>)}: Set di chiavi logiche (\textit{tipo|nome}) per evitare duplicati (unisce le quantità).
 \end{itemize}
         \item \textbf{Metodi Principali:}
             \begin{itemize}
-                \item \texttt{aggiungiVoce(unique\_ptr<VoceCosto>)}: Inserisce una nuova lavorazione trasferendo la proprietà del puntatore (move semantics).
-                \item \texttt{totale()}: Itera sul vettore \texttt{voci\_} invocando polimorficamente \texttt{subtotale()}.
-                \item \texttt{riepilogo()}: Genera una stringa formattata  con il dettaglio di tutte le voci.
-                \item \texttt{aggiungiVoce(unique\_ptr<VoceCosto>)}: Inserisce una nuova lavorazione (move). Se esiste già (stesso tipo+nome) unisce le quantità invece di creare un duplicato.
+                \item \texttt{aggiungiVoce(unique\_ptr<VoceCosto>)}: Inserisce una nuova lavorazione (move). Se esiste già (stesso tipo+nome) unisce le quantità.
+                \item \texttt{totale()}: Itera su \texttt{voci\_} invocando polimorficamente \texttt{subtotale()} (implementazione con \texttt{std::accumulate}).
+                \item \texttt{riepilogo()}: Genera una stringa formattata con il dettaglio di tutte le voci.
             \end{itemize}
         \item \textbf{Relazioni:}
             \begin{itemize}
@@ -392,6 +390,66 @@ Modulo di persistenza responsabile dell'esportazione del preventivo su file.
             \end{itemize}
     \end{itemize}
 
+\item[RegolaCosto (Classe Astratta - Strategy)] \hfill \\
+Interfaccia astratta che definisce la strategia di creazione di una \texttt{VoceCosto}.
+Serve per disaccoppiare la logica di costruzione delle voci dall'oggetto che orchestra il flusso
+(\texttt{CalcolatorePreventivo}), rendendo il sistema estendibile (OCP).
+
+\begin{itemize}
+    \item \textbf{Responsabilità:} incapsulare l'algoritmo di creazione di una specifica tipologia di voce.
+    \item \textbf{Metodi:}
+    \begin{itemize}
+        \item \texttt{creaVoce(...)}: metodo virtuale puro che costruisce e restituisce una \texttt{unique\_ptr<VoceCosto>}.
+        La firma concreta può includere i parametri necessari alla voce (es. mq, nome ciclo, listino, grado difficoltà).
+    \end{itemize}
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Generalizzazione:} padre di \texttt{RegolaTinteggiatura} e \texttt{RegolaCartongesso}.
+        \item \textbf{Uso (non owning):} referenziata da \texttt{CalcolatorePreventivo} tramite puntatore \texttt{const RegolaCosto*}.
+    \end{itemize}
+\end{itemize}
+
+\item[RegolaTinteggiatura (Strategy Concreta)] \hfill \\
+Strategia concreta per la creazione di una \texttt{VoceTinteggiatura}. Viene utilizzata quando l'utente seleziona
+cicli appartenenti alle categorie \textit{Interno} o \textit{Esterno}.
+
+\begin{itemize}
+    \item \textbf{Input tipici:} nome ciclo selezionato, mq inseriti dall'utente, stato immobile (\texttt{GradoDifficolta}), riferimento al listino.
+    \item \textbf{Comportamento:}
+    \begin{itemize}
+        \item Recupera dal \texttt{ListinoPrezzi} il prezzo base associato al nome del ciclo.
+        \item Determina il coefficiente di difficoltà in base al \texttt{GradoDifficolta}.
+        \item Istanzia una \texttt{VoceTinteggiatura} inizializzata con quantità, prezzo unitario e coefficiente.
+    \end{itemize}
+    \item \textbf{Dipendenze:} utilizza \texttt{ListinoPrezzi} (prezzi/coefficiente) e i dati selezionati tramite UI (menu basati su \texttt{CatalogoCicli}).
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Implementa:} \texttt{RegolaCosto}.
+        \item \textbf{Creazione:} istanzia \texttt{VoceTinteggiatura}.
+    \end{itemize}
+\end{itemize}
+
+\item[RegolaCartongesso (Strategy Concreta)] \hfill \\
+Strategia concreta per la creazione di una \texttt{VoceCartongesso}. È responsabile di costruire la voce tramite il
+\textbf{Builder} per mantenere il processo di creazione estendibile.
+
+\begin{itemize}
+    \item \textbf{Input tipici:} nome ciclo cartongesso, mq, \texttt{GradoDifficolta}, riferimento al listino.
+    \item \textbf{Comportamento:}
+    \begin{itemize}
+        \item Istanzia un \texttt{VoceCartongessoBuilder}.
+        \item Configura il Builder passo-passo (es. \texttt{setNomeCiclo}, \texttt{setMq}, \texttt{setListino}, \texttt{setGrado}).
+        \item Invoca \texttt{build()} per ottenere una \texttt{unique\_ptr<VoceCosto>} concreta (\texttt{VoceCartongesso}).
+    \end{itemize}
+    \item \textbf{Dipendenze:} usa \texttt{ListinoPrezzi} e dati selezionati dalla UI (indici/nome ciclo provenienti da \texttt{CatalogoCicli}).
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Implementa:} \texttt{RegolaCosto}.
+        \item \textbf{Uso:} dipende da \texttt{VoceCartongessoBuilder}.
+        \item \textbf{Creazione:} produce \texttt{VoceCartongesso}.
+    \end{itemize}
+\end{itemize}
+
     \item[ListinoPrezzi] \hfill \\
     Database in-memory dei costi e dei coefficienti.
     \begin{itemize}
@@ -487,45 +545,43 @@ Il \textbf{Listino Prezzi} è inizializzato all'avvio tramite il modulo \texttt{
 % 8d. INTERAZIONE
 % ------------------------------------------------------------------
 \section{Modalità di Interazione (I/O)}
-L'interazione con l'utente è di tipo testuale (CLI - Command Line Interface) ed è gestita dalla classe \texttt{GestioneInputUI}.
-\subsection{Flusso di Interazione}
-Il flusso è guidato da prompt testuali (CLI) e si articola in:
-
-\begin{enumerate}
-    \item \textbf{Inizializzazione:} generazione ID preventivo, inserimento nome cliente e selezione stato immobile (Nuovo / Disabitato / Abitato).
-    \item \textbf{Loop inserimento voci:}
-       \begin{verbatim}
-       - Seleziona categoria (Interno / Esterno / Cartongesso)
-       - Seleziona sottocategoria (in base alla categoria)
-       - Seleziona ciclo di lavorazione dal CatalogoCicli (0 = Torna indietro)
-       - Inserisci mq (validazione: > 0 e <= 1.000.000)
-       - Conferma: "Aggiungere altra voce? (S/N)"
-       \end{verbatim}
-    \item \textbf{Chiusura:} ordinamento delle voci, stampa riepilogo e salvataggio su file TXT e CSV (in parallelo).
-\end{enumerate}
 
 \subsection{Flusso di Interazione}
-Il sistema presenta un menu interattivo ciclico:
+Il flusso dell'applicazione è guidato da un'interfaccia testuale (CLI) e segue la stessa logica descritta dagli Use Case UC1--UC3:
+
 \begin{enumerate}
-    \item \textbf{Input Iniziale:} Richiesta nome cliente e stato immobile (selezione numerica 1-3).
-    \item \textbf{Menu Principale (Loop):}
-       \begin{verbatim}
-       1) Seleziona tipologia cantiere (Nuovo / Disabitato / Abitato)
-       2) Seleziona categoria (Interno / Esterno / Cartongesso)
-       3) Seleziona sottocategoria (es. Interno civile / Cartongesso controsoffitti / ...)
-       4) Seleziona ciclo di lavorazione (da CatalogoCicli)
-       5) Inserisci mq
-       6) Conferma inserimento o seleziona S per aggiungere altre voci
-       7) Stampa riepilogo finale e salvataggio TXT/CSV
-       \end{verbatim}
-    \item \textbf{Sottomenu Categorie:} In base alla categoria scelta (Interno/Esterno/Cartongesso) e alla sottocategoria, viene mostrato l'elenco dei cicli disponibili prelevati da \texttt{CatalogoCicli} (es. "1. Traspirante", "2. Lavabile").
-    \item \textbf{Input Quantitativo:} Richiesta della superficie in mq (con validazione per impedire valori negativi).
-    \item \textbf{Output Finale:} Messaggio di conferma salvataggio e chiusura.
+    \item \textbf{Inizializzazione (preparazione contesto):}
+    \begin{itemize}
+        \item generazione automatica dell'ID preventivo;
+        \item inserimento del nome cliente (con validazione);
+        \item selezione dello stato immobile (\texttt{GradoDifficolta}: Nuovo / Disabitato / Abitato).
+    \end{itemize}
+
+    \item \textbf{Loop di inserimento lavorazioni (UC1 e UC2):}
+    \begin{itemize}
+        \item selezione della categoria (Interno / Esterno / Cartongesso);
+        \item eventuale selezione della sottocategoria (se prevista dalla categoria);
+        \item selezione del ciclo di lavorazione dal \texttt{CatalogoCicli};
+        \item inserimento della quantità in mq (validazione: valore $> 0$ e con limiti massimi);
+        \item creazione della voce tramite la strategia corretta:
+        \begin{itemize}
+            \item \textbf{UC1 (Tinteggiatura):} \texttt{RegolaTinteggiatura} crea una \texttt{VoceTinteggiatura} usando prezzo e coefficienti dal \texttt{ListinoPrezzi}.
+            \item \textbf{UC2 (Cartongesso):} \texttt{RegolaCartongesso} crea una \texttt{VoceCartongesso} tramite \texttt{VoceCartongessoBuilder}.
+        \end{itemize}
+        \item conferma dell'utente per aggiungere un'altra voce oppure terminare.
+    \end{itemize}
+
+    \item \textbf{Chiusura e salvataggio (UC3):}
+    \begin{itemize}
+        \item stampa del riepilogo finale e calcolo del totale tramite iterazione polimorfica sulle \texttt{VoceCosto};
+        \item esportazione su file TXT e CSV , gestita da \texttt{SalvataggioPreventivo}.
+    \end{itemize}
 \end{enumerate}
 
-La classe \texttt{Utils} fornisce funzioni di supporto per la gestione e validazione dell'input
+La classe \texttt{GestioneInputUI} gestisce i menu e la validazione, mentre \texttt{Utils} fornisce funzioni di supporto
 (\texttt{trim}, \texttt{leggiIntero}, \texttt{leggiDouble}, \texttt{chiediConferma}, \texttt{nomeClienteValido})
-e una funzione per ottenere il tempo locale in modo thread-safe (\texttt{getLocalTimeSafe}).
+e la funzione thread-safe per la data locale (\texttt{getLocalTimeSafe}).
+
 
 % ------------------------------------------------------------------
 % 9. ALTRE INDICAZIONI UTILI
@@ -541,6 +597,12 @@ Di seguito il dettaglio delle librerie standard utilizzate e del loro scopo nel 
     \item[\texttt{<thread>}, \texttt{<mutex>}, \texttt{<atomic>}, \texttt{<chrono>}] \hfill \\
     Usate nel modulo \texttt{SalvataggioPreventivo} per eseguire il salvataggio TXT e CSV in parallelo (thread),
     sincronizzare l'output su console (mutex) e gestire lo stato di avanzamento/completamento (atomic) con attese temporizzate (chrono).
+
+    \item[\texttt{<string>}] \hfill \\
+    Usata per la gestione delle stringhe (\texttt{id\_}, \texttt{cliente\_}, nomi dei cicli, riepiloghi e CSV).
+
+    \item[\texttt{<utility>}] \hfill \\
+    Usata per le move semantics (\texttt{std::move}) nel trasferimento di \texttt{unique\_ptr} e nella gestione efficiente degli oggetti.
 
     \item[\texttt{<numeric>}] \hfill \\
     Usata in \texttt{Preventivo::totale()} tramite \texttt{std::accumulate} per sommare i subtotali delle voci con una lambda.
