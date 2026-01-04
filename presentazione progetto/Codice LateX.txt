@@ -121,7 +121,7 @@ Il software risolve questa inefficienza strutturale offrendo un vantaggio recipr
 Oltre alla risoluzione della problematica operativa, il progetto si pone precisi obiettivi tecnici e funzionali:
 
 \begin{enumerate}
-    \item \textbf{Rapidità di Utilizzo:} Minimizzare il numero di input richiesti all'utente (soli mq e tipologia), delegando al sistema la complessità del calcolo dei materiali e della manodopera.
+    \item \textbf{Rapidità di Utilizzo:} Minimizzare il numero di input richiesti all'utente (mq,grado difficoltà e tipologia), delegando al sistema la complessità del calcolo dei materiali e della manodopera.
 
     \item \textbf{Coerenza dei Prezzi:} Standardizzare le quotazioni applicando listini predefiniti e coefficienti di difficoltà (es. \textit{locale abitato} vs \textit{nuovo}) in modo automatico, eliminando la soggettività e l'errore umano tipico delle stime "a braccio".
 
@@ -142,7 +142,7 @@ I requisiti funzionali descrivono i comportamenti specifici e le funzioni che il
     Il sistema deve permettere all'utente di definire lo stato dell'immobile (es. \textit{Nuovo, Abitato, Disabitato}). Sulla base di questa scelta, l'applicazione deve applicare automaticamente dei \textbf{coefficienti correttivi} al listino base per adeguare il prezzo alla complessità logistica.
 
     \item \textbf{RF2 - Gestione Listini Centralizzata:}
-    Il software deve mantenere un listino prezzi unico per tutte le lavorazioni. Deve essere possibile associare a ogni voce un prezzo unitario al metro quadro, garantendo che lo stesso tariffario venga applicato uniformemente a tutto il preventivo.
+    Il sistema utilizza un catalogo dei cicli (interno/esterno/cartongesso) per presentare le lavorazioni disponibili e un listino prezzi per gestire coefficienti di difficoltà e prezzi al mq delle lavorazioni. I coefficienti correttivi vengono applicati automaticamente in base allo stato dell'immobile.
 
     \item \textbf{RF3 - Creazione e Composizione Preventivi:}
     L'utente deve poter creare un nuovo preventivo (associato a un ID univoco e a un cliente) e popolarlo aggiungendo diverse tipologie di voci di costo. Il sistema deve supportare l'inserimento di:
@@ -152,9 +152,12 @@ I requisiti funzionali descrivono i comportamenti specifici e le funzioni che il
     \end{itemize}
 
     \item \textbf{RF4 - Calcolo Automatico dei Totali:}
-    Il sistema deve calcolare il costo di ogni singola voce (superficie $\times$ prezzo unitario $\times$ coefficiente di difficoltà) al momento dell'inserimento e ricalcolare il totale complessivo del preventivo quando viene richiesto il riepilogo.
+    Il sistema calcola il costo di ogni voce (mq $\times$ prezzo unitario $\times$ coefficiente) tramite il metodo \texttt{subtotale()} delle singole lavorazioni. Il totale complessivo viene calcolato quando richiesto (riepilogo e/o salvataggio) iterando polimorficamente sulle voci del preventivo.
+
     \item \textbf{RF5 - Persistenza e Esportazione Dati:}
-    Al termine della sessione, il preventivo generato deve essere salvato su memoria di massa. Il sistema deve supportare l'esportazione in formati standard (CSV per l'analisi dati e TXT per la leggibilità) contenenti il dettaglio delle voci e il riepilogo finale.
+    Il preventivo viene esportato su file in formato TXT e CSV tramite funzioni dedicate del modulo di salvataggio.
+    Il salvataggio dei due formati viene eseguito in \textbf{concorrenza} (due task paralleli) con sincronizzazione dell'output su console.
+    Nel CSV è presente un'intestazione e una riga per ogni voce; seguono righe di riepilogo (imponibile, IVA, totale).
 
     \item \textbf{RF6 - Interfaccia Utente (CLI):}
     L'interazione deve avvenire tramite interfaccia a riga di comando (Console), guidando l'utente attraverso menu numerici sequenziali per minimizzare gli errori di input.
@@ -171,9 +174,14 @@ I requisiti non funzionali definiscono gli attributi di qualità del sistema e i
     L'architettura deve permettere l'aggiunta di nuove categorie di lavorazioni (es. Pavimentazioni) o nuove regole di calcolo senza dover modificare la logica del gestore dei preventivi, ma estendendo le classi esistenti.
 
     \item \textbf{RNF3 - Integrità dei Dati:}
-    Il progetto utilizza puntatori intelligenti (\texttt{std::unique\_ptr}, \texttt{std::shared\_ptr}) per garantire una corretta gestione della memoria (RAII), prevenendo memory leak durante la creazione e distruzione dei preventivi.
+    L'uso di puntatori intelligenti (\texttt{std::unique\_ptr}, \texttt{std::shared\_ptr}) è richiesto per garantire una corretta gestione della memoria (RAII), prevenendo memory leak durante la creazione e distruzione dei preventivi.
+
     \item \textbf{RNF4 - Performance:}
     Il calcolo del preventivo deve essere istantaneo al momento dell'inserimento dei dati, senza latenze percepibili dall'utente, se non quelle inserite volutamente per scopo didattico.
+
+    \item \textbf{RNF5 - Affidabilità e Concorrenza Controllata:}
+    Le operazioni di I/O (salvataggio TXT/CSV) sono eseguite in modo concorrente tramite \texttt{std::thread}, con uso di \texttt{std::mutex} e \texttt{std::atomic} per evitare race condition.
+    Gli errori di configurazione (es. chiavi mancanti nel listino) e di I/O (file non apribili) vengono gestiti tramite \textbf{eccezioni}.
 \end{itemize}
 
 % ------------------------------------------------------------------
@@ -207,7 +215,7 @@ Lo sviluppo del progetto si è articolato in cinque fasi principali:
     \item \textbf{Implementazione dei Design Pattern}
     \begin{itemize}
         \item \textbf{Pattern Builder (Predisposizione Architetturale):} Adozione di \texttt{VoceCartongessoBuilder} per la creazione della classe \texttt{VoceCartongesso}. Sebbene nell'attuale versione del software la voce non presenti una struttura interna complessa, il Builder è stato implementato in ottica di \textbf{estendibilità futura}. L'obiettivo è predisporre il sistema ad accogliere configurazioni articolate (es. aggiunta di lastre ignifughe, isolanti acustici o orditure doppie) senza dover ristrutturare l'intero codice.
-        \item \textbf{Pattern Strategy/Factory:} Implementazione delle classi \texttt{RegolaCosto} per disaccoppiare l'algoritmo di creazione e calcolo dal client, permettendo di selezionare la strategia corretta a runtime in base alla scelta dell'utente.
+        \item \textbf{Pattern Strategy:} Implementazione delle classi \texttt{RegolaCosto} per disaccoppiare l'algoritmo di creazione e calcolo dal client, permettendo di selezionare la strategia corretta a runtime in base alla scelta dell'utente.
     \end{itemize}
 
     \item \textbf{Testing, Debugging e Refactoring}
@@ -216,6 +224,15 @@ Lo sviluppo del progetto si è articolato in cinque fasi principali:
         \item Debugging della gestione dell'input utente (classe \texttt{GestioneInputUI}) per evitare crash su inserimenti non validi.
         \item Test di persistenza: verifica della correttezza dei file CSV generati e della loro leggibilità.
     \end{itemize}
+    
+    \item \textbf{Integrazione funzionalità di C++ moderno (C++11)}
+    \begin{itemize}
+    \item Implementazione di \textbf{Copy/Move semantics} e overload di operatori (es. \texttt{operator=} e \texttt{operator+=}) per la classe \texttt{Preventivo}.
+    \item Uso di \textbf{STL algorithms} (\texttt{std::accumulate}, \texttt{std::sort}) e \textbf{lambda} per calcoli e ordinamenti.
+    \item Introduzione di una funzione \textbf{template} di aggregazione per calcoli riutilizzabili.
+    \item Salvataggio concorrente con \texttt{std::thread}, sincronizzazione con \texttt{mutex} e stato con \texttt{atomic}.
+    \end{itemize}
+    
 \end{enumerate}
 % ------------------------------------------------------------------
 % 8. ATTIVITÀ DI IMPLEMENTAZIONE
@@ -244,12 +261,15 @@ Di seguito vengono descritte le classi principali, le loro responsabilità e le 
                 \item \texttt{cliente\_ (string)}: Nome del committente.
                 \item \texttt{grado\_ (GradoDifficolta)}: Enum che definisce lo stato dell'immobile (es. \textit{Abitato}), influenzando i costi.
                 \item \texttt{voci\_ (vector<unique\_ptr<VoceCosto>>)}: Collezione polimorfica delle lavorazioni.
-            \end{itemize}
+               \item \texttt{voci\_ (vector<unique\_ptr<VoceCosto>>)}: Collezione polimorfica delle lavorazioni.
+               \item \texttt{chiaviVoci\_ (set<string>)}: Set di chiavi logiche (\textit{tipo|nome}) usato come guardia per evitare duplicati; se una lavorazione è già presente, si uniscono le quantità.
+\end{itemize}
         \item \textbf{Metodi Principali:}
             \begin{itemize}
                 \item \texttt{aggiungiVoce(unique\_ptr<VoceCosto>)}: Inserisce una nuova lavorazione trasferendo la proprietà del puntatore (move semantics).
                 \item \texttt{totale()}: Itera sul vettore \texttt{voci\_} invocando polimorficamente \texttt{subtotale()}.
-                \item \texttt{riepilogo()}: Genera una stringa formattata con il dettaglio di tutte le voci.
+                \item \texttt{riepilogo()}: Genera una stringa formattata  con il dettaglio di tutte le voci.
+                \item \texttt{aggiungiVoce(unique\_ptr<VoceCosto>)}: Inserisce una nuova lavorazione (move). Se esiste già (stesso tipo+nome) unisce le quantità invece di creare un duplicato.
             \end{itemize}
         \item \textbf{Relazioni:}
             \begin{itemize}
@@ -263,6 +283,7 @@ Di seguito vengono descritte le classi principali, le loro responsabilità e le 
         \item \textbf{Proprietà (Protected):} \texttt{nome\_}, \texttt{unitaMisura\_}, \texttt{quantita\_}, \texttt{prezzoUnitario\_}, \texttt{coefficiente\_}.
         \item \textbf{Metodi:}
             \begin{itemize}
+                \item \texttt{tipoVoce() (virtual pure)}: etichetta logica della voce (stampe/CSV).
                 \item \texttt{subtotale() (virtual pure)}: Metodo astratto che deve essere implementato dalle sottoclassi per calcolare il costo specifico.
                 \item \texttt{clone()}: Implementa il pattern Prototype per la duplicazione profonda degli oggetti.
             \end{itemize}
@@ -286,13 +307,75 @@ Di seguito vengono descritte le classi principali, le loro responsabilità e le 
     Implementazione del \textbf{Pattern Builder} per la creazione controllata di voci complesse.
     \begin{itemize}
         \item \textbf{Proprietà:} Mantiene temporaneamente i parametri (\texttt{mq\_}, \texttt{listino\_}, ecc.) necessari alla costruzione.
-        \item \textbf{Metodi:} \texttt{setMq()}, \texttt{setListino()}, \texttt{build()}. Il metodo \texttt{build()} restituisce un \texttt{unique\_ptr<VoceCosto>} configurato.
+        \item \textbf{Metodi:} \texttt{setNomeCiclo()}, \texttt{setMq()}, \texttt{setListino()}, \texttt{setGrado()}, \texttt{build()}.
         \item \textbf{Relazioni:}
             \begin{itemize}
                 \item \textbf{Associazione:} Mantiene uno \texttt{shared\_ptr} al \texttt{ListinoPrezzi}.
                 \item \textbf{Creazione:} Istanzia oggetti \texttt{VoceCartongesso}.
             \end{itemize}
     \end{itemize}
+\item[CatalogoCicli] \hfill \\
+Modulo di dominio che rappresenta un \textbf{catalogo statico} delle lavorazioni disponibili.
+Contiene metadati (nome ciclo, prezzo base €/mq, categoria e sottocategoria) e funzioni di accesso controllato.
+\begin{itemize}
+    \item \textbf{Entità principali:} \texttt{CicloInfo} (\texttt{nome}, \texttt{prezzoMq}, \texttt{CategoriaLavoro},\\
+    \texttt{SottoCategoriaLavoro}).
+    \item \textbf{Funzioni:} \texttt{getNumeroCicli()}, \texttt{getCiclo(index)}.
+    \item \textbf{Helper per UI:} \texttt{getNomeCicloDaIndice()}, \texttt{isCartongessoIndex()}.
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Dipendenza:} usato da \texttt{GestioneInputUI} per mostrare i menu e da \texttt{ListinoDefault} per caricare i prezzi.
+    \end{itemize}
+\end{itemize}
+
+\item[ListinoDefault] \hfill \\
+Modulo di inizializzazione che carica nel \texttt{ListinoPrezzi} i \textbf{prezzi base} e i \textbf{coefficienti standard}.
+\begin{itemize}
+    \item \textbf{Funzione:} \texttt{caricaListinoDefault(ListinoPrezzi\&)}.
+    \item \textbf{Comportamento:} importa i prezzi €/mq da \texttt{CatalogoCicli} e imposta i coefficienti per \texttt{GradoDifficolta}.
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Dipendenza:} usa \texttt{CatalogoCicli} e configura \texttt{ListinoPrezzi} all'avvio.
+    \end{itemize}
+\end{itemize}
+
+\item[GestioneInputUI] \hfill \\
+Strato di interfaccia testuale (CLI) responsabile dei menu e della \textbf{validazione input}.
+\begin{itemize}
+    \item \textbf{Nota progettuale:} classe \textbf{stateless} (metodi statici).
+    \item \textbf{Metodi:} \texttt{chiediGradoDifficolta()}, \texttt{chiediCategoriaLavoro()},\\ \texttt{chiediSottoCategoriaLavoro()}, \texttt{menuCicliPerCategoria()}.
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Dipendenza:} utilizza \texttt{CatalogoCicli} (categorie/sottocategorie e lista cicli).
+    \end{itemize}
+\end{itemize}
+
+\item[Utils] \hfill \\
+Modulo di funzioni di supporto per ridurre duplicazione nel codice e rendere robusta la gestione input.
+\begin{itemize}
+    \item \textbf{Input robusto:} lettura tramite \texttt{getline} e parsing (\texttt{leggiIntero()}, \texttt{leggiDouble()}).
+    \item \textbf{Validazione:} \texttt{nomeClienteValido()}, \texttt{chiediConferma()}.
+    \item \textbf{Utility:} \texttt{trim()}.
+    \item \textbf{Thread-safety:} \texttt{getLocalTimeSafe()} per ottenere la data locale evitando data race su \texttt{std::localtime}.
+\end{itemize}
+
+\item[IdPreventivoGenerator] \hfill \\
+Modulo che genera l'identificativo univoco del preventivo in formato \texttt{PYYYYMMDD-XXX}.
+\begin{itemize}
+    \item \textbf{Funzione:} \texttt{generaIdPreventivo()}.
+    \item \textbf{Dettagli:} usa un contatore progressivo (\texttt{std::atomic<int>}) e la data ottenuta tramite \texttt{Utils::getLocalTimeSafe()}.
+\end{itemize}
+
+\item[SalvataggioPreventivo] \hfill \\
+Modulo di persistenza responsabile dell'esportazione del preventivo su file.
+\begin{itemize}
+    \item \textbf{Funzioni:} \texttt{salvaPreventivoSuTxt()}, \texttt{salvaPreventivoSuCsv()}.
+    \item \textbf{Salvataggio concorrente:} \texttt{salvaPreventivoConcorrente()} avvia due thread (TXT e CSV) e sincronizza output su console (\texttt{std::mutex}); lo stato di completamento usa variabili atomiche.
+    \item \textbf{Relazioni:}
+    \begin{itemize}
+        \item \textbf{Dipendenza:} legge i dati dal \texttt{Preventivo} tramite getter e iterazione sulle \texttt{VoceCosto}.
+    \end{itemize}
+\end{itemize}
 
     \item[CalcolatorePreventivo] \hfill \\
     Classe che orchestra la creazione delle voci utilizzando il \textbf{Pattern Strategy}.
@@ -323,12 +406,12 @@ Di seguito vengono descritte le classi principali, le loro responsabilità e le 
 In questa sezione viene descritto come gli oggetti collaborano per realizzare le funzionalità principali.
 
 \subsection{UC1: Creazione di una Voce di Tinteggiatura}
-Nel progetto, per “tinteggiatura” si intendono i cicli associati alle categorie \textit{Interno} ed \textit{Esterno}.
-\textbf{Descrizione:} L'utente seleziona un ciclo di tinteggiatura e inserisce i mq.
+\textbf{Descrizione:} L'utente seleziona un ciclo di tinteggiatura e inserisce i mq;
 \begin{itemize}
+\item\textbf{Specifica:} Nel progetto, per “tinteggiatura” si intendono i cicli associati alle categorie  \textit{Interno} ed \textit{Esterno}.
     \item \textbf{Interazione Oggetti:}
     \begin{enumerate}
-        \item \texttt{GestioneInputUI} acquisisce l'input utente (categoria e mq).
+        \item \texttt{GestioneInputUI} acquisisce l'input utente (categoria, eventuale sottocategoria, ciclo selezionato e mq).
         \item \texttt{CalcolatorePreventivo} viene configurato con la strategia \texttt{RegolaTinteggiatura}.
         \item Il metodo \texttt{aggiungiLavoro()} invoca \texttt{RegolaTinteggiatura::creaVoce()}.
         \item Viene istanziato un oggetto \texttt{VoceTinteggiatura} che interroga \texttt{ListinoPrezzi} per ottenere il costo unitario.
@@ -343,21 +426,23 @@ Nel progetto, per “tinteggiatura” si intendono i cicli associati alle catego
     \begin{enumerate}
         \item \texttt{CalcolatorePreventivo} usa la strategia \texttt{RegolaCartongesso}.
         \item La regola istanzia un \texttt{VoceCartongessoBuilder}.
-        \item Il Builder viene configurato passo-passo (\texttt{setMq}, \texttt{setNomeCiclo}, \texttt{setListino}).
+        \item Il Builder viene configurato passo-passo (\texttt{setMq}, \texttt{setNomeCiclo}, \texttt{setListino}, \texttt{setGrado}).
         \item Il metodo \texttt{build()} finalizza l'oggetto e lo restituisce al \texttt{Preventivo}.
     \end{enumerate}
 \end{itemize}
 
 \subsection{UC3: Esportazione Preventivo}
-\textbf{Descrizione:} L'utente decide di salvare il preventivo su file.
+\textbf{Descrizione:} L'utente decide di salvare il preventivo su file (TXT e/o CSV).
 \begin{itemize}
     \item \textbf{Interazione Oggetti:}
     \begin{enumerate}
         \item Il \texttt{main} invoca la classe statica \texttt{SalvataggioPreventivo}.
-        \item Il metodo \texttt{salvaPreventivoSuTxt} richiede al \texttt{Preventivo} i dati tramite i getter e il metodo \texttt{riepilogo()}.
-        \item Viene aperto uno stream \texttt{std::ofstream} e scritti i dati su disco.
+        \item In base alla scelta, viene chiamato \texttt{salvaPreventivoSuTxt()} e/o \texttt{salvaPreventivoSuCsv()} (oppure \texttt{salvaPreventivoConcorrente()} per eseguire i due salvataggi in parallelo).
+        \item I metodi richiedono al \texttt{Preventivo} i dati tramite getter e iterazione polimorfica sulle \texttt{VoceCosto}.
+        \item Vengono aperti gli stream \texttt{std::ofstream} e scritti i dati su disco; eventuali errori di I/O vengono gestiti tramite eccezioni.
     \end{enumerate}
 \end{itemize}
+
 
 % ------------------------------------------------------------------
 % 8c. BASE DI DATI
@@ -390,18 +475,34 @@ La classe \texttt{SalvataggioPreventivo} gestisce due formati di output:
     Tinteggiatura;Lavabile Interna;mq;50;6.50;1.00;325.00
     Cartongesso;Controsoffitto;mq;20;12.00;1.20;288.00
     TotaleImponibile;;;;;;613.00
-    IVA(22%);;;;;;;134.86
+    IVA(22%);;;;;;134.86
     TotaleComplessivo;;;;;;747.86
     \end{verbatim}
 \end{description}
 
-Il \textbf{Listino Prezzi} è invece hard-coded e inizializzato all'avvio tramite il modulo \texttt{ListinoDefault}, che popola le mappe della classe \texttt{ListinoPrezzi} con i valori base definiti nel codice sorgente.
+Il \textbf{Listino Prezzi} è inizializzato all'avvio tramite il modulo \texttt{ListinoDefault}, che popola le mappe della classe \texttt{ListinoPrezzi} con valori predefiniti definiti nel codice sorgente.
+
 
 % ------------------------------------------------------------------
 % 8d. INTERAZIONE
 % ------------------------------------------------------------------
 \section{Modalità di Interazione (I/O)}
 L'interazione con l'utente è di tipo testuale (CLI - Command Line Interface) ed è gestita dalla classe \texttt{GestioneInputUI}.
+\subsection{Flusso di Interazione}
+Il flusso è guidato da prompt testuali (CLI) e si articola in:
+
+\begin{enumerate}
+    \item \textbf{Inizializzazione:} generazione ID preventivo, inserimento nome cliente e selezione stato immobile (Nuovo / Disabitato / Abitato).
+    \item \textbf{Loop inserimento voci:}
+       \begin{verbatim}
+       - Seleziona categoria (Interno / Esterno / Cartongesso)
+       - Seleziona sottocategoria (in base alla categoria)
+       - Seleziona ciclo di lavorazione dal CatalogoCicli (0 = Torna indietro)
+       - Inserisci mq (validazione: > 0 e <= 1.000.000)
+       - Conferma: "Aggiungere altra voce? (S/N)"
+       \end{verbatim}
+    \item \textbf{Chiusura:} ordinamento delle voci, stampa riepilogo e salvataggio su file TXT e CSV (in parallelo).
+\end{enumerate}
 
 \subsection{Flusso di Interazione}
 Il sistema presenta un menu interattivo ciclico:
@@ -437,6 +538,22 @@ Per garantire la massima portabilità e ridurre le dipendenze esterne, il proget
 Di seguito il dettaglio delle librerie standard utilizzate e del loro scopo nel progetto:
 
 \begin{description}
+    \item[\texttt{<thread>}, \texttt{<mutex>}, \texttt{<atomic>}, \texttt{<chrono>}] \hfill \\
+    Usate nel modulo \texttt{SalvataggioPreventivo} per eseguire il salvataggio TXT e CSV in parallelo (thread),
+    sincronizzare l'output su console (mutex) e gestire lo stato di avanzamento/completamento (atomic) con attese temporizzate (chrono).
+
+    \item[\texttt{<numeric>}] \hfill \\
+    Usata in \texttt{Preventivo::totale()} tramite \texttt{std::accumulate} per sommare i subtotali delle voci con una lambda.
+
+    \item[\texttt{<set>}] \hfill \\
+    Usata in \texttt{Preventivo} per mantenere un set di chiavi logiche ed evitare duplicati di lavorazioni (unendo le quantità se la voce è già presente).
+
+    \item[\texttt{<sstream>} e \texttt{<ctime>}] \hfill \\
+    Usate per costruire il riepilogo (\texttt{std::ostringstream}) e formattare la data (\texttt{std::tm}, \texttt{std::strftime}).
+
+    \item[\texttt{<stdexcept>}] \hfill \\
+    Usata per la gestione degli errori tramite eccezioni (es. file non apribili, listino non valido).
+
     \item[\texttt{<iostream>} e \texttt{<iomanip>}] \hfill \\
     Utilizzate per la gestione dell'Input/Output su console. In particolare, \texttt{<iomanip>} è fondamentale per la formattazione monetaria (es. \texttt{std::fixed}, \texttt{std::setprecision(2)}) per mostrare i prezzi con due cifre decimali.
 
@@ -473,6 +590,7 @@ Sebbene il software non implementi algoritmi di calcolo scientifico complessi, f
 
     \item \textbf{Iterazione Polimorfica:}
     L'algoritmo di calcolo del totale (\texttt{Preventivo::totale()}) si basa sull'iterazione lineare su un container eterogeneo. Il sistema sfrutta il \textit{Dynamic Dispatch} (binding dinamico) per invocare la versione corretta del metodo \texttt{subtotale()} a runtime, a seconda che l'oggetto sia una Tinteggiatura o un Cartongesso.
+    Nell'implementazione, la somma viene realizzata tramite \texttt{std::accumulate} con una lambda che invoca \texttt{subtotale()} su ciascuna voce.
     \\ \textit{Complessità:} $O(n)$.
 
     \item \textbf{Ricerca Associativa:}
