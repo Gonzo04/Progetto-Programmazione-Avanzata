@@ -81,6 +81,10 @@ bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName
     // Task 1: TXT
     threadPool.emplace_back([&]() {
         try {
+            /*
+             ho inserito volutamente questo sleep per rallentare il programma in modo da gestire un futuro
+             programma più pesante che necessita secondi perchè i thread facciano le loro operazioni
+             */
             std::this_thread::sleep_for(std::chrono::seconds(2));
             salvaPreventivoSuTxt(p, baseName + ".txt");
         } catch (const std::exception& e) {
@@ -94,7 +98,10 @@ bool salvaPreventivoConcorrente(const Preventivo& p, const std::string& baseName
     // Task 2: CSV
     threadPool.emplace_back([&]() {
         try {
-            // ho inserito volutamente questo sleep per rallentare il programma in modo da simulare un caricamento
+            /*
+             ho inserito volutamente questo sleep per rallentare il programma in modo da gestire un futuro
+             programma più pesante che necessita secondi perchè i thread facciano le loro operazioni
+             */
             std::this_thread::sleep_for(std::chrono::seconds(2));
             salvaPreventivoSuCsv(p, baseName + ".csv");
         } catch (const std::exception& e) {

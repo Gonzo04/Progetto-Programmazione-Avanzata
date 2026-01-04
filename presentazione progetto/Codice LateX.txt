@@ -152,8 +152,7 @@ I requisiti funzionali descrivono i comportamenti specifici e le funzioni che il
     \end{itemize}
 
     \item \textbf{RF4 - Calcolo Automatico dei Totali:}
-    Il sistema deve calcolare in tempo reale il costo di ogni singola voce (moltiplicando superficie $\times$ prezzo unitario $\times$ coefficiente difficoltà) e aggiornare dinamicamente il totale complessivo del preventivo.
-
+    Il sistema deve calcolare il costo di ogni singola voce (superficie $\times$ prezzo unitario $\times$ coefficiente di difficoltà) al momento dell'inserimento e ricalcolare il totale complessivo del preventivo quando viene richiesto il riepilogo.
     \item \textbf{RF5 - Persistenza e Esportazione Dati:}
     Al termine della sessione, il preventivo generato deve essere salvato su memoria di massa. Il sistema deve supportare l'esportazione in formati standard (CSV per l'analisi dati e TXT per la leggibilità) contenenti il dettaglio delle voci e il riepilogo finale.
 
@@ -172,8 +171,7 @@ I requisiti non funzionali definiscono gli attributi di qualità del sistema e i
     L'architettura deve permettere l'aggiunta di nuove categorie di lavorazioni (es. Pavimentazioni) o nuove regole di calcolo senza dover modificare la logica del gestore dei preventivi, ma estendendo le classi esistenti.
 
     \item \textbf{RNF3 - Integrità dei Dati:}
-    L'uso di puntatori intelligenti (\texttt{std::unique\_ptr}, \texttt{std::shared\_ptr}) è richiesto per garantire una corretta gestione della memoria (RAII), prevenendo memory leak durante la creazione e distruzione dei preventivi.
-
+    Il progetto utilizza puntatori intelligenti (\texttt{std::unique\_ptr}, \texttt{std::shared\_ptr}) per garantire una corretta gestione della memoria (RAII), prevenendo memory leak durante la creazione e distruzione dei preventivi.
     \item \textbf{RNF4 - Performance:}
     Il calcolo del preventivo deve essere istantaneo al momento dell'inserimento dei dati, senza latenze percepibili dall'utente, se non quelle inserite volutamente per scopo didattico.
 \end{itemize}
@@ -392,7 +390,7 @@ La classe \texttt{SalvataggioPreventivo} gestisce due formati di output:
     Tinteggiatura;Lavabile Interna;mq;50;6.50;1.00;325.00
     Cartongesso;Controsoffitto;mq;20;12.00;1.20;288.00
     TotaleImponibile;;;;;;613.00
-    IVA(22%);;;;;;134.86
+    IVA(22%);;;;;;;134.86
     TotaleComplessivo;;;;;;747.86
     \end{verbatim}
 \end{description}
